@@ -1,0 +1,8 @@
+[package]
+name = "pserq"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+num-bigint = "0.4"
+rand = "0.8.0"
