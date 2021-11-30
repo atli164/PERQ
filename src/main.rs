@@ -1,6 +1,7 @@
 use std::fmt;
 use std::io;
 use std::fs;
+use std::io::Write;
 use pserq::Serializable;
 use pserq::HashTable;
 use std::io::BufRead;
@@ -43,15 +44,15 @@ impl Serializable for ShortSeq {
         let mut buf1: [u8; 1] = [0; 1];
         let mut buf4: [u8; 4] = [0; 4];
         let mut buf8: [u8; 8] = [0; 8];
-        istr.read(&mut buf4)?;
+        istr.read_exact(&mut buf4)?;
         let a_number = u32::from_be_bytes(buf4);
-        istr.read(&mut buf1)?;
+        istr.read_exact(&mut buf1)?;
         let val_num = u8::from_be_bytes(buf1);
-        istr.read(&mut buf1)?;
+        istr.read_exact(&mut buf1)?;
         let flags = u8::from_be_bytes(buf1);
         let mut vals: [i64; 15] = [0; 15];
         for i in 0..15 {
-            istr.read(&mut buf8)?;
+            istr.read_exact(&mut buf8)?;
             vals[i] = i64::from_be_bytes(buf8);
         }
         Ok(ShortSeq {
@@ -99,22 +100,22 @@ impl ShortSeqDB {
 impl Serializable for ShortSeqDB {
     fn serialize<S: io::Write>(&self, ostr: &mut S) -> io::Result<()> {
         ostr.write(&self.entry_num.to_be_bytes())?;
-        self.a_to_index.serialize(ostr)?;
         for seq in &self.seqs {
             seq.serialize(ostr)?;
         }
+        self.a_to_index.serialize(ostr)?;
         Ok(())
     }
 
     fn deserialize<S: io::Read>(istr: &mut S) -> io::Result<ShortSeqDB> {
         let mut buf4: [u8; 4] = [0; 4];
-        istr.read(&mut buf4)?;
+        istr.read_exact(&mut buf4)?;
         let entry_num = u32::from_be_bytes(buf4);
-        let a_to_index = HashTable::deserialize(istr)?;
         let mut seqs = Vec::with_capacity(entry_num as usize);
         for _i in 0..entry_num {
             seqs.push(ShortSeq::deserialize(istr)?);
         }
+        let a_to_index = HashTable::deserialize(istr)?;
         Ok(ShortSeqDB {
             entry_num,
             a_to_index,
@@ -170,23 +171,18 @@ fn stripped_to_db(filename: String) -> io::Result<ShortSeqDB> {
 }
 
 fn main() {
+    let db = stripped_to_db("stripped".to_string()).unwrap();
     {
-        let db = stripped_to_db("stripped".to_string()).unwrap();
         let file_out = fs::File::create("shortdb").unwrap();
         let mut writer = io::BufWriter::new(file_out);
         db.serialize(&mut writer).unwrap();
-        let score_seq_ind = db.a_to_index.get(300000_u32).unwrap();
-        let score_seqs = db.seqs[score_seq_ind as usize];
-        println!("{}", score_seqs);
+        writer.flush().unwrap();
     }
-
     {
         let file_in = fs::File::open("shortdb").unwrap();
         let mut reader = io::BufReader::new(file_in);
-        let db = ShortSeqDB::deserialize(&mut reader).unwrap();
-        let score_seq_ind = db.a_to_index.get(300000_u32).unwrap();
-        let score_seqs = db.seqs[score_seq_ind as usize];
-        println!("{}", score_seqs);
+        let db2 = ShortSeqDB::deserialize(&mut reader).unwrap();
+        assert_eq!(db, db2);
     }
 }
 

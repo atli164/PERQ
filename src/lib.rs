@@ -46,11 +46,11 @@ impl Serializable for HashCell {
     fn deserialize<S: io::Read>(istr: &mut S) -> io::Result<HashCell> {
         let mut buf1: [u8; 1] = [0; 1];
         let mut buf4: [u8; 4] = [0; 4];
-        istr.read(&mut buf1)?;
+        istr.read_exact(&mut buf1)?;
         let dist = i8::from_be_bytes(buf1);
-        istr.read(&mut buf4)?;
+        istr.read_exact(&mut buf4)?;
         let key = u32::from_be_bytes(buf4);
-        istr.read(&mut buf4)?;
+        istr.read_exact(&mut buf4)?;
         let val = u32::from_be_bytes(buf4);
         Ok(HashCell {
             dist,
@@ -75,6 +75,10 @@ impl HashTable {
         Default::default()
     }
 
+    pub fn entries(&self) -> usize {
+        self.entries
+    }
+
     fn grow(&mut self) {
         self.size *= 2;
         self.mask = (self.size - 1) as u32;
@@ -83,9 +87,8 @@ impl HashTable {
     }
 
     fn rehash(&mut self, buckets: usize) {
-        let mut old_dat = vec![];
+        let mut old_dat = vec![HashCell::default(); buckets];
         mem::swap(&mut old_dat, &mut self.dat);
-        self.dat = vec![HashCell::default(); buckets];
         self.entries = 0;
         for cell in &old_dat {
             if cell.has_value() {
@@ -170,13 +173,13 @@ impl Serializable for HashTable {
         let mut buf1: [u8; 1] = [0; 1];
         let mut buf4: [u8; 4] = [0; 4];
         let mut buf8: [u8; 8] = [0; 8];
-        istr.read(&mut buf8)?;
+        istr.read_exact(&mut buf8)?;
         let entries = usize::from_be_bytes(buf8);
-        istr.read(&mut buf8)?;
+        istr.read_exact(&mut buf8)?;
         let size = usize::from_be_bytes(buf8);
-        istr.read(&mut buf4)?;
+        istr.read_exact(&mut buf4)?;
         let mask = u32::from_be_bytes(buf4);
-        istr.read(&mut buf1)?;
+        istr.read_exact(&mut buf1)?;
         let log = i8::from_be_bytes(buf1);
         let mut dat = Vec::with_capacity(size);
         for _i in 0..(size + (log as usize) + 1) {
@@ -196,6 +199,21 @@ impl Serializable for HashTable {
 mod tests {
     use super::*;
 
+    fn make_cells(count: usize) -> Vec<HashCell> {
+        let mut res = Vec::with_capacity(count);
+        for _i in 0..count {
+            let key = rand::random::<u32>();
+            let val = rand::random::<u32>();
+            let dist = rand::random::<i8>();
+            res.push(HashCell {
+                dist,
+                key,
+                val
+            });
+        }
+        res
+    }
+
     fn make_entries(count: usize) -> Vec<(u32, u32)> {
         let mut res = Vec::with_capacity(count);
         for _i in 0..count {
@@ -203,8 +221,8 @@ mod tests {
             let val = rand::random::<u32>();
             res.push((key, val));
         }
-        res.sort();
-        res.dedup();
+        res.sort_by_key(|x| x.0);
+        res.dedup_by_key(|x| x.0);
         res
     }
 
@@ -244,7 +262,34 @@ mod tests {
     }
 
     #[test]
-    fn test_serialization() {
+    fn test_big() {
+        let mut table = HashTable::new();
+        let entries = make_entries(100000);
+        for (key, val) in &entries {
+            table.insert(*key, *val);
+        }
+        println!("{}", entries.len());
+        for (key, val) in &entries {
+            assert_eq!(table.get(*key), Some(*val));
+        }
+    }
+
+    #[test]
+    fn test_cell_serialization() {
+        let mut buf = vec![];
+        let cells = make_cells(1000);
+        for cell in &cells {
+            cell.serialize(&mut buf).unwrap();
+        }
+        let mut arr: &[u8] = &buf;
+        for i in 0..1000 {
+            let cell = HashCell::deserialize(&mut arr).unwrap();
+            assert_eq!(cells[i], cell);
+        }
+    }
+
+    #[test]
+    fn test_table_serialization() {
         let mut buf = vec![];
         let mut table = HashTable::new();
         let entries = make_entries(2000);
@@ -254,11 +299,6 @@ mod tests {
         table.serialize(&mut buf).unwrap();
         let mut arr: &[u8] = &buf;
         let new_table = HashTable::deserialize(&mut arr).unwrap();
-        for (key, val) in &entries[..1000] {
-            assert_eq!(new_table.get(*key), Some(*val));
-        }
-        for (key, _val) in &entries[1000..] {
-            assert_eq!(new_table.get(*key), None);
-        }
+        assert_eq!(table, new_table);
     }
 }
