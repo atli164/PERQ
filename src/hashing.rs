@@ -1,12 +1,7 @@
 use std::mem;
-use std::io;
+use serde::{Serialize, Deserialize};
 
-pub trait Serializable {
-    fn serialize<S: io::Write>(&self, ostr: &mut S) -> io::Result<()>;
-    fn deserialize<S: io::Read>(istr: &mut S) -> io::Result<Self> where Self: Sized;
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 struct HashCell {
     dist: i8,
     key: u32,
@@ -35,33 +30,8 @@ impl Default for HashCell {
     }
 }
 
-impl Serializable for HashCell {
-    fn serialize<S: io::Write>(&self, ostr: &mut S) -> io::Result<()> {
-        ostr.write(&self.dist.to_be_bytes())?;
-        ostr.write(&self.key.to_be_bytes())?;
-        ostr.write(&self.val.to_be_bytes())?;
-        Ok(())
-    }
-
-    fn deserialize<S: io::Read>(istr: &mut S) -> io::Result<HashCell> {
-        let mut buf1: [u8; 1] = [0; 1];
-        let mut buf4: [u8; 4] = [0; 4];
-        istr.read_exact(&mut buf1)?;
-        let dist = i8::from_be_bytes(buf1);
-        istr.read_exact(&mut buf4)?;
-        let key = u32::from_be_bytes(buf4);
-        istr.read_exact(&mut buf4)?;
-        let val = u32::from_be_bytes(buf4);
-        Ok(HashCell {
-            dist,
-            key,
-            val
-        })
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct HashTable
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct FastIntHashTable
 where {
     entries: usize,
     size: usize,
@@ -70,8 +40,8 @@ where {
     dat: Vec<HashCell>,
 }
 
-impl HashTable {
-    pub fn new() -> HashTable {
+impl FastIntHashTable {
+    pub fn new() -> FastIntHashTable {
         Default::default()
     }
 
@@ -98,7 +68,7 @@ impl HashTable {
     }
 
     pub fn clear(&mut self) {
-        *self = HashTable::new();
+        *self = FastIntHashTable::new();
     }
 
     fn hash(&self, x: u32) -> u32 {
@@ -145,53 +115,15 @@ impl HashTable {
     }
 }
 
-impl Default for HashTable {
+impl Default for FastIntHashTable {
     fn default() -> Self {
-            HashTable {
+        FastIntHashTable {
             entries: 0,
             size: 4,
             mask: 3,
             log: 2,
             dat: vec![HashCell::default(); 7]
         }
-    }
-}
-
-impl Serializable for HashTable {
-    fn serialize<S: io::Write>(&self, ostr: &mut S) -> io::Result<()> {
-        ostr.write(&self.entries.to_be_bytes())?;
-        ostr.write(&self.size.to_be_bytes())?;
-        ostr.write(&self.mask.to_be_bytes())?;
-        ostr.write(&self.log.to_be_bytes())?;
-        for cell in &self.dat {
-            cell.serialize(ostr)?;
-        }
-        Ok(())
-    }
-
-    fn deserialize<S: io::Read>(istr: &mut S) -> io::Result<HashTable> {
-        let mut buf1: [u8; 1] = [0; 1];
-        let mut buf4: [u8; 4] = [0; 4];
-        let mut buf8: [u8; 8] = [0; 8];
-        istr.read_exact(&mut buf8)?;
-        let entries = usize::from_be_bytes(buf8);
-        istr.read_exact(&mut buf8)?;
-        let size = usize::from_be_bytes(buf8);
-        istr.read_exact(&mut buf4)?;
-        let mask = u32::from_be_bytes(buf4);
-        istr.read_exact(&mut buf1)?;
-        let log = i8::from_be_bytes(buf1);
-        let mut dat = Vec::with_capacity(size);
-        for _i in 0..(size + (log as usize) + 1) {
-            dat.push(HashCell::deserialize(istr)?);
-        }
-        Ok(HashTable {
-            entries,
-            size,
-            mask,
-            log,
-            dat
-        })
     }
 }
 
@@ -229,7 +161,7 @@ mod tests {
     #[test]
     fn test_insert() {
         for size in vec![10, 100, 1000] {
-            let mut table = HashTable::new();
+            let mut table = FastIntHashTable::new();
             for (key, val) in make_entries(size) {
                 table.insert(key, val);
             }
@@ -242,7 +174,7 @@ mod tests {
 
     #[test]
     fn test_get() {
-        let mut table = HashTable::new();
+        let mut table = FastIntHashTable::new();
         for (key, val) in make_entries(1000) {
             table.insert(key, val);
         }
@@ -252,7 +184,7 @@ mod tests {
 
     #[test]
     fn test_overwrite() {
-        let mut table = HashTable::new();
+        let mut table = FastIntHashTable::new();
         for (key, val) in make_entries(1000) {
             table.insert(key, val);
         }
@@ -263,7 +195,7 @@ mod tests {
 
     #[test]
     fn test_big() {
-        let mut table = HashTable::new();
+        let mut table = FastIntHashTable::new();
         let entries = make_entries(100000);
         for (key, val) in &entries {
             table.insert(*key, *val);
@@ -272,33 +204,5 @@ mod tests {
         for (key, val) in &entries {
             assert_eq!(table.get(*key), Some(*val));
         }
-    }
-
-    #[test]
-    fn test_cell_serialization() {
-        let mut buf = vec![];
-        let cells = make_cells(1000);
-        for cell in &cells {
-            cell.serialize(&mut buf).unwrap();
-        }
-        let mut arr: &[u8] = &buf;
-        for i in 0..1000 {
-            let cell = HashCell::deserialize(&mut arr).unwrap();
-            assert_eq!(cells[i], cell);
-        }
-    }
-
-    #[test]
-    fn test_table_serialization() {
-        let mut buf = vec![];
-        let mut table = HashTable::new();
-        let entries = make_entries(2000);
-        for (key, val) in &entries[..1000] {
-            table.insert(*key, *val);
-        }
-        table.serialize(&mut buf).unwrap();
-        let mut arr: &[u8] = &buf;
-        let new_table = HashTable::deserialize(&mut arr).unwrap();
-        assert_eq!(table, new_table);
     }
 }
