@@ -1,5 +1,4 @@
 use std::ops::{Add, Sub, Mul, Div};
-use std::sync::Mutex;
 
 // Z maps into any ring, so From<i64> makes sense here
 pub trait Ring: Clone + Add<Output = Self> + Sub<Output = Self> + Mul<Output = Self> + From<i64> {}
@@ -43,7 +42,7 @@ impl<T: Ring> Sub for Series<T> {
     }
 }
 
-pub trait UnboundedSeries<T> where T: Ring {
+pub trait GeneratingSeries<T> where T: Ring {
     fn coeff(&self, i: usize) -> T;
     fn into_bounded(&self, len: usize) -> Series<T> {
         let mut res = Vec::with_capacity(len);
@@ -56,46 +55,42 @@ pub trait UnboundedSeries<T> where T: Ring {
     }
 }
 
-// Due to length, Unbounded Series is shortened as US going forward
+// Due to length, Generating Series is shortened as GS going forward
 
-struct NoMemoryPrimitiveUS<T> where T: Ring {
+struct PureFuncPrimitiveGS<T: Ring> {
     f: fn(usize) -> T
 }
 
-impl<T: Ring> UnboundedSeries<T> for NoMemoryPrimitiveUS<T> {
+impl<T: Ring> GeneratingSeries<T> for PureFuncPrimitiveGS<T> {
     fn coeff(&self, i: usize) -> T {
         (self.f)(i)
     }
 }
 
-struct VectorMemoryPrimitiveUS<T> where T: Ring {
-    next: fn(&Vec<T>) -> T,
-    memo: Mutex<Vec<T>>
-}
+// Make sure these functions use at most linear-ish memory
+// For example storing all nCk values for k <= n would be far
+// too much memory for large sequence values, blotting out any
+// speed gains
 
-impl<T: Ring> UnboundedSeries<T> for VectorMemoryPrimitiveUS<T> {
-    fn coeff(&self, i: usize) -> T {
-        let vec = &mut self.memo.lock().unwrap();
-        while vec.len() <= i {
-            let val = (self.next)(&vec);
-            vec.push(val);
-        }
-        vec[i].clone()
+pub fn a000045<T: Ring>(i: usize) -> T {
+    match i {
+        0 => T::from(0),
+        1 => T::from(1),
+        _ => a000045::<T>(i - 1) + a000045::<T>(i - 2)
     }
 }
 
-pub fn oeis<T: Ring + 'static>(a_ind: u32) -> Option<Box<dyn UnboundedSeries<T>>> {
+pub fn a001477<T: Ring>(i: usize) -> T {
+    T::from(i as i64)
+}
+
+pub fn oeis<T: Ring + 'static>(a_ind: u32) -> Option<Box<dyn GeneratingSeries<T>>> {
     match a_ind {
-        000045 => Some(Box::new(VectorMemoryPrimitiveUS {
-            memo: Mutex::new(vec![T::from(0), T::from(1)]),
-            next: |v: &Vec<T>| {
-                v[v.len() - 2].clone() + v[v.len() - 1].clone()
-            }
+        000045 => Some(Box::new(PureFuncPrimitiveGS {
+            f: a000045
         })),
-        001477 => Some(Box::new(NoMemoryPrimitiveUS {
-            f: |x: usize| {
-                T::from(x as i64)
-            }
+        001477 => Some(Box::new(PureFuncPrimitiveGS {
+            f: a001477
         })),
         _ => None
     }

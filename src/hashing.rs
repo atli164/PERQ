@@ -1,7 +1,6 @@
 use std::mem;
-use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 struct HashCell {
     dist: i8,
     key: u32,
@@ -30,7 +29,7 @@ impl Default for HashCell {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq)]
 pub struct FastIntHashTable
 where {
     entries: usize,
