@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use pserq::{Ring, Field, ModIntP32, MersP31B32, MersP61B64};
+use perq::{Ring, Field, ModIntP32, MersP31B32, MersP61B64};
 
 #[allow(dead_code)]
 fn test_fib<T: Ring + Copy + std::fmt::Debug>(mxn: usize) {
@@ -32,7 +32,7 @@ macro_rules! bench_type {
     ( $g:expr, $t:ty, $f:tt ) => {
         $g.bench_function(
             BenchmarkId::new(stringify!($f), std::any::type_name::<$t>()),
-            |b| b.iter(|| $f::<$t>(black_box(10000)))
+            |b| b.iter(|| $f::<$t>(black_box(1000)))
         )
     };
 }
@@ -53,6 +53,6 @@ fn bench_fib(c: &mut Criterion) {
     bench_type!(group, MersP61B64, test_fib);
 }
 
-// criterion_group!(benches, bench_fib);
-criterion_group!(benches, bench_div);
+criterion_group!(benches, bench_fib);
+// criterion_group!(benches, bench_div);
 criterion_main!(benches);
