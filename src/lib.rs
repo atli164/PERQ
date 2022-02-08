@@ -1,5 +1,4 @@
 #![feature(bigint_helper_methods)]
-#![feature(unchecked_math)]
 // mod hashing;
 mod shortseq;
 // mod modulo;

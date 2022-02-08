@@ -172,10 +172,7 @@ impl Add for MersP31B32 {
     type Output = Self;
     #[inline]
     fn add(self, other: Self) -> Self {
-        let res = unsafe {
-            self.x.unchecked_add(other.x)
-        };
-        (Self { x: res }).reduced()
+        (Self { x: self.x + other.x }).reduced()
     }
 }
 impl Sub for MersP31B32 {
@@ -189,10 +186,7 @@ impl Neg for MersP31B32 {
     type Output = Self;
     #[inline]
     fn neg(self) -> Self {
-        let res = unsafe {
-            MERSENNEVAL.unchecked_sub(self.x)
-        };
-        (Self { x: res }).reduced()
+        (Self { x: MERSENNEVAL - self.x }).reduced()
     }
 }
 impl Mul for MersP31B32 {
@@ -200,9 +194,7 @@ impl Mul for MersP31B32 {
     #[inline]
     fn mul(self, other: Self) -> Self {
         let (r, k) = self.x.widening_mul(other.x);
-        let res = unsafe {
-            (r & MERSENNEVAL).unchecked_add(r >> 31).unchecked_add(k << 1)
-        };
+        let res = (r & MERSENNEVAL) + (r >> 31) + (k << 1);
         (Self { x: res }).reduced()
     }
 }
@@ -257,10 +249,7 @@ impl Add for MersP61B64 {
     type Output = Self;
     #[inline]
     fn add(self, other: Self) -> Self {
-        let res = unsafe {
-            self.x.unchecked_add(other.x)
-        };
-        (Self { x: res }).reduced()
+        (Self { x: self.x + other.x }).reduced()
     }
 }
 impl Sub for MersP61B64 {
@@ -274,10 +263,7 @@ impl Neg for MersP61B64 {
     type Output = Self;
     #[inline]
     fn neg(self) -> Self {
-        let res = unsafe {
-            MERSENNEVAL64.unchecked_sub(self.x)
-        };
-        (Self { x: res }).reduced()
+        (Self { x: MERSENNEVAL64 - self.x }).reduced()
     }
 }
 impl Mul for MersP61B64 {
@@ -285,9 +271,7 @@ impl Mul for MersP61B64 {
     #[inline]
     fn mul(self, other: Self) -> Self {
         let (r, k) = self.x.widening_mul(other.x);
-        let res = unsafe {
-            (r & MERSENNEVAL64).unchecked_add(r >> 61).unchecked_add(k << 3)
-        };
+        let res = (r & MERSENNEVAL64) + (r >> 61) + (k << 3);
         (Self { x: res }).reduced()
     }
 }
