@@ -1,0 +1,1 @@
+See if GCD can be replaced with Binary GCD with somehow avoiding overflow problems of the version found in the references document.

@@ -11,5 +11,13 @@ rand = "0.8.0"
 criterion = "0.3.5"
 
 [[bench]]
-name = "coeff_bench"
+name = "coeff_ring_bench"
+harness = false
+
+[[bench]]
+name = "coeff_div_bench"
+harness = false
+
+[[bench]]
+name = "seq_bench"
 harness = false
