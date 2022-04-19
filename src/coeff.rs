@@ -91,7 +91,7 @@ impl MersP31B32 {
     }
     #[inline]
     fn reduced(self) -> MersP31B32 {
-        // According to Godbolt this should emit a CMOVE
+        // According to Godbolt this should emit a CMOV
         Self {
             x: if self.x >= MERSENNEVAL32 {
                 self.x - MERSENNEVAL32
