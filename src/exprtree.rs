@@ -3,25 +3,25 @@ use std::ops::{Add, Sub, Mul, Neg, Div};
 
 #[derive(Debug, Clone)]
 enum PowerSeriesExpr<T: PowerSeries> {
-    LeafExpr(T),
-    AddExpr(Box<PowerSeriesExpr<T>>, Box<PowerSeriesExpr<T>>),
-    SubExpr(Box<PowerSeriesExpr<T>>, Box<PowerSeriesExpr<T>>),
-    MulExpr(Box<PowerSeriesExpr<T>>, Box<PowerSeriesExpr<T>>),
-    DivExpr(Box<PowerSeriesExpr<T>>, Box<PowerSeriesExpr<T>>),
-    ComposeExpr(Box<PowerSeriesExpr<T>>, Box<PowerSeriesExpr<T>>),
-    HadamardExpr(Box<PowerSeriesExpr<T>>, Box<PowerSeriesExpr<T>>),
-    NegExpr(Box<PowerSeriesExpr<T>>),
-    LShiftExpr(Box<PowerSeriesExpr<T>>),
-    RShiftExpr(Box<PowerSeriesExpr<T>>),
-    DeriveExpr(Box<PowerSeriesExpr<T>>),
-    IntegrateExpr(Box<PowerSeriesExpr<T>>),
-    InverseExpr(Box<PowerSeriesExpr<T>>),
-    SqrtExpr(Box<PowerSeriesExpr<T>>),
+    Leaf(T),
+    Add(Box<PowerSeriesExpr<T>>, Box<PowerSeriesExpr<T>>),
+    Sub(Box<PowerSeriesExpr<T>>, Box<PowerSeriesExpr<T>>),
+    Mul(Box<PowerSeriesExpr<T>>, Box<PowerSeriesExpr<T>>),
+    Div(Box<PowerSeriesExpr<T>>, Box<PowerSeriesExpr<T>>),
+    Compose(Box<PowerSeriesExpr<T>>, Box<PowerSeriesExpr<T>>),
+    Hadamard(Box<PowerSeriesExpr<T>>, Box<PowerSeriesExpr<T>>),
+    Neg(Box<PowerSeriesExpr<T>>),
+    LShift(Box<PowerSeriesExpr<T>>),
+    RShift(Box<PowerSeriesExpr<T>>),
+    Derive(Box<PowerSeriesExpr<T>>),
+    Integrate(Box<PowerSeriesExpr<T>>),
+    Inverse(Box<PowerSeriesExpr<T>>),
+    Sqrt(Box<PowerSeriesExpr<T>>),
 }
 
 impl<T: PowerSeries> Default for PowerSeriesExpr<T> {
     fn default() -> Self {
-        PowerSeriesExpr::LeafExpr(T::default())
+        PowerSeriesExpr::Leaf(T::default())
     }
 }
 
@@ -34,99 +34,99 @@ impl<T: PowerSeries> PartialEq for PowerSeriesExpr<T> {
 impl<T: PowerSeries> PowerSeriesExpr<T> {
     fn eval(&self) -> T {
         match self {
-            PowerSeriesExpr::LeafExpr(x) => x.clone(),
-            PowerSeriesExpr::AddExpr(x, y) => x.eval() + y.eval(),
-            PowerSeriesExpr::SubExpr(x, y) => x.eval() - y.eval(),
-            PowerSeriesExpr::MulExpr(x, y) => x.eval() * y.eval(),
-            PowerSeriesExpr::DivExpr(x, y) => x.eval() / y.eval(),
-            PowerSeriesExpr::ComposeExpr(x, y) => x.eval().compose(y.eval()),
-            PowerSeriesExpr::HadamardExpr(x, y) => x.eval().hadamard(y.eval()),
-            PowerSeriesExpr::NegExpr(x) => -x.eval(),
-            PowerSeriesExpr::LShiftExpr(x) => x.eval().lshift(),
-            PowerSeriesExpr::RShiftExpr(x) => x.eval().rshift(),
-            PowerSeriesExpr::DeriveExpr(x) => x.eval().derive(),
-            PowerSeriesExpr::IntegrateExpr(x) => x.eval().integrate(),
-            PowerSeriesExpr::InverseExpr(x) => x.eval().inverse(),
-            PowerSeriesExpr::SqrtExpr(x) => x.eval().sqrt(),
+            PowerSeriesExpr::Leaf(x) => x.clone(),
+            PowerSeriesExpr::Add(x, y) => x.eval() + y.eval(),
+            PowerSeriesExpr::Sub(x, y) => x.eval() - y.eval(),
+            PowerSeriesExpr::Mul(x, y) => x.eval() * y.eval(),
+            PowerSeriesExpr::Div(x, y) => x.eval() / y.eval(),
+            PowerSeriesExpr::Compose(x, y) => x.eval().compose(y.eval()),
+            PowerSeriesExpr::Hadamard(x, y) => x.eval().hadamard(y.eval()),
+            PowerSeriesExpr::Neg(x) => -x.eval(),
+            PowerSeriesExpr::LShift(x) => x.eval().lshift(),
+            PowerSeriesExpr::RShift(x) => x.eval().rshift(),
+            PowerSeriesExpr::Derive(x) => x.eval().derive(),
+            PowerSeriesExpr::Integrate(x) => x.eval().integrate(),
+            PowerSeriesExpr::Inverse(x) => x.eval().inverse(),
+            PowerSeriesExpr::Sqrt(x) => x.eval().sqrt(),
         }
     }
 }
 
 impl<T: PowerSeries> From<u32> for PowerSeriesExpr<T> {
     fn from(x: u32) -> Self {
-        PowerSeriesExpr::LeafExpr(T::from(x))
+        PowerSeriesExpr::Leaf(T::from(x))
     }
 }
 
 impl<T: PowerSeries> Add for PowerSeriesExpr<T> {
     type Output = Self;
     fn add(self, o: Self) -> Self {
-        PowerSeriesExpr::AddExpr(Box::new(self), Box::new(o))
+        PowerSeriesExpr::Add(Box::new(self), Box::new(o))
     }
 }
 
 impl<T: PowerSeries> Sub for PowerSeriesExpr<T> {
     type Output = Self;
     fn sub(self, o: Self) -> Self {
-        PowerSeriesExpr::SubExpr(Box::new(self), Box::new(o))
+        PowerSeriesExpr::Sub(Box::new(self), Box::new(o))
     }
 }
 
 impl<T: PowerSeries> Neg for PowerSeriesExpr<T> {
     type Output = Self;
     fn neg(self) -> Self {
-        PowerSeriesExpr::NegExpr(Box::new(self))
+        PowerSeriesExpr::Neg(Box::new(self))
     }
 }
 
 impl<T: PowerSeries> Mul for PowerSeriesExpr<T> {
     type Output = Self;
     fn mul(self, o: Self) -> Self {
-        PowerSeriesExpr::MulExpr(Box::new(self), Box::new(o))
+        PowerSeriesExpr::Mul(Box::new(self), Box::new(o))
     }
 }
 
 impl<T: PowerSeries> Div for PowerSeriesExpr<T> {
     type Output = Self;
     fn div(self, o: Self) -> Self {
-        PowerSeriesExpr::DivExpr(Box::new(self), Box::new(o))
+        PowerSeriesExpr::Div(Box::new(self), Box::new(o))
     }
 }
 
 impl<F: Field + Copy, T: PowerSeries<Coeff = F>> PowerSeries for PowerSeriesExpr<T> {
     type Coeff = F;
     fn promote(coeff: Self::Coeff) -> Self {
-        PowerSeriesExpr::LeafExpr(T::promote(coeff))
+        PowerSeriesExpr::Leaf(T::promote(coeff))
     }
     fn identity() -> Self {
-        PowerSeriesExpr::LeafExpr(T::identity())
+        PowerSeriesExpr::Leaf(T::identity())
     }
     fn coefficient(self, i: usize) -> Self::Coeff {
         self.eval().coefficient(i)
     }
     fn derive(self) -> Self {
-        PowerSeriesExpr::DeriveExpr(Box::new(self))
+        PowerSeriesExpr::Derive(Box::new(self))
     }
     fn integrate(self) -> Self {
-        PowerSeriesExpr::IntegrateExpr(Box::new(self))
+        PowerSeriesExpr::Integrate(Box::new(self))
     }
     fn inverse(self) -> Self {
-        PowerSeriesExpr::InverseExpr(Box::new(self))
+        PowerSeriesExpr::Inverse(Box::new(self))
     }
     fn compose(self, other: Self) -> Self {
-        PowerSeriesExpr::ComposeExpr(Box::new(self), Box::new(other))
+        PowerSeriesExpr::Compose(Box::new(self), Box::new(other))
     }
     fn hadamard(self, other: Self) -> Self {
-        PowerSeriesExpr::HadamardExpr(Box::new(self), Box::new(other))
+        PowerSeriesExpr::Hadamard(Box::new(self), Box::new(other))
     }
     fn sqrt(self) -> Self {
-        PowerSeriesExpr::SqrtExpr(Box::new(self))
+        PowerSeriesExpr::Sqrt(Box::new(self))
     }
     fn lshift(self) -> Self {
-        PowerSeriesExpr::LShiftExpr(Box::new(self))
+        PowerSeriesExpr::LShift(Box::new(self))
     }
     fn rshift(self) -> Self {
-        PowerSeriesExpr::RShiftExpr(Box::new(self))
+        PowerSeriesExpr::RShift(Box::new(self))
     }
 }
 
