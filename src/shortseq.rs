@@ -1,11 +1,25 @@
 use std::ops::{Add, Sub, Neg, Mul, Div};
 use crate::{Field, PowerSeries};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy)]
 pub struct ShortSeq<T: Field + Copy> {
     pub seq: [T; 16],
     pub cnt: u8
 }
+
+impl<T: Field + Copy> PartialEq for ShortSeq<T> {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        let mx = std::cmp::min(self.cnt, other.cnt) as usize;
+        for i in 0..mx {
+            if self.seq[i] != other.seq[i] {
+                return false;
+            }
+        }
+        true
+    }
+}
+
 
 impl<T: Field + Copy> Default for ShortSeq<T> {
     #[inline]
@@ -195,7 +209,17 @@ impl<T: Field + Copy> PowerSeries for ShortSeq<T> {
 
     #[inline]
     fn sqrt(self) -> Self {
-        unimplemented!()
+        // for now, tonnelli-shanks later
+        assert!(self.seq[0] == T::from(1));
+        let mut r = Self::promote(T::from(1));
+        for _i in 0..16 {
+            let q = (self - r * r).tail_term() / (Self::promote(T::from(2)) * r).tail_term();
+            if q == Self::promote(T::from(0)) {
+                return r;
+            }
+            r = r + q;
+        }
+        r
     }
 
     //#[inline]
@@ -243,6 +267,25 @@ impl<T: Field + Copy> ShortSeq<T> {
         Self {
             seq: seq,
             cnt: 16
+        }
+    }
+    #[inline]
+    fn tail_term(self) -> Self {
+        let mut found = false;
+        let mut seq: [T; 16] = self.seq;
+        for x in seq.iter_mut() {
+            if *x == T::from(0) {
+                continue;
+            }
+            if found {
+                *x = T::from(0);
+            } else {
+                found = true;
+            }
+        }
+        Self {
+            seq: seq,
+            cnt: self.cnt
         }
     }
 }
@@ -302,5 +345,13 @@ mod tests {
         }
         let exp = ShortSeq::<ModIntP32>::new(expseq);
         assert_eq!(atan.inverse(), tang.hadamard(exp));
+    }
+
+    #[test]
+    fn sqrt_test() {
+        let simple = ShortSeq::<ModIntP32>::new_u32([1, 11, 19, 23, 3, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(simple, (simple * simple).sqrt());
+        let catalan = ShortSeq::<ModIntP32>::new_u32([1, 1, 2, 5, 14, 42, 132, 429, 1430, 4862, 16796, 58786, 208012, 742900, 2674440, 9694845]);
+        assert_eq!(catalan, catalan.lshift().sqrt());
     }
 }

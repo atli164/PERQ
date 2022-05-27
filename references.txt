@@ -3,3 +3,5 @@ https://eprint.iacr.org/2020/972.pdf
 https://github.com/compiler-explorer/compiler-explorer
 Hacker's delight
 https://cacr.uwaterloo.ca/hac/about/chap14.pdf#page=17
+https://www.ams.org/journals/mcom/2011-80-273/S0025-5718-2010-02392-0/S0025-5718-2010-02392-0.pdf
+https://cr.yp.to/bib/2004/hanrot-middle.pdf
