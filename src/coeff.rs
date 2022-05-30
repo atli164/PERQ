@@ -1,7 +1,7 @@
 use std::ops::{Add, Sub, Mul, Neg, Div};
 
 const MODP32: u32 = 65521;
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct ModIntP32 {
     x: u32
 }
@@ -79,7 +79,34 @@ impl From<u32> for ModIntP32 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+impl std::str::FromStr for ModIntP32 {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.len() == 0 {
+            return Err(());
+        }
+        let mut res = ModIntP32::from(0u32);
+        let mut neg = false;
+        for (i, c) in s.chars().enumerate() {
+            if i == 0 && c == '-' {
+                neg = true;
+                continue;
+            }
+            res = res * ModIntP32::from(10u32);
+            match c.to_digit(10) {
+                Some(x) => res = res + ModIntP32::from(x),
+                None => return Err(())
+            }
+        }
+        if neg {
+            res = -res;
+        }
+        Ok(res)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct MersP31B32 {
     x: u32
 }
@@ -157,7 +184,7 @@ impl From<u32> for MersP31B32 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct MersP61B64 {
     x: u64
 }

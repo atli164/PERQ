@@ -8,15 +8,22 @@ pub struct ShortSeq<T: Field + Copy> {
 }
 
 impl<T: Field + Copy> PartialEq for ShortSeq<T> {
-    #[inline]
     fn eq(&self, other: &Self) -> bool {
-        let mx = std::cmp::min(self.cnt, other.cnt) as usize;
-        for i in 0..mx {
-            if self.seq[i] != other.seq[i] {
-                return false;
-            }
-        }
-        true
+        self.seq == other.seq
+    }
+}
+
+impl<T: Field + Copy> Eq for ShortSeq<T> { }
+
+impl<T: Field + Copy + Ord> PartialOrd for ShortSeq<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<T: Field + Copy + Ord> Ord for ShortSeq<T> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.seq.cmp(&other.seq)
     }
 }
 
