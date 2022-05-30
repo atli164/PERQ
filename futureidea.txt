@@ -1,2 +1,3 @@
 See if GCD can be replaced with Binary GCD with somehow avoiding overflow problems of the version found in the references document.
 Check if Newton iteration makes sense in the discrete case
+Compare to https://oeis.org/superhelp.txt
