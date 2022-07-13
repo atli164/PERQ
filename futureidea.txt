@@ -4,3 +4,4 @@ Berlekamp-Massey to solve for rational functions
 Linear algebra to solve P-recursive directly with limited parameters? Can't find better algorithms.
 Possibly Petkovseks algorithm for hypergeometric functions to simplify P-recursive results?
 Transforms from https://akc.is/hops/language/
+Check if Newton iteration makes sense in the discrete case
