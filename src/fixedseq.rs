@@ -2,55 +2,62 @@ use std::ops::{Add, Sub, Neg, Mul, Div};
 use crate::{Field, PowerSeries};
 
 #[derive(Debug, Clone, Copy)]
-pub struct ShortSeq<T: Field + Copy> {
-    pub seq: [T; 16],
+pub struct FixedSeq<T: Field + Copy, const N: usize> {
+    pub seq: [T; N],
     pub cnt: u8
 }
 
-impl<T: Field + Copy> PartialEq for ShortSeq<T> {
+pub type ShortSeq<T> = FixedSeq<T, 16>;
+
+impl<T: Field + Copy, const N: usize> PartialEq for FixedSeq<T, N> {
     fn eq(&self, other: &Self) -> bool {
-        self.seq == other.seq
+        for i in 0..(std::cmp::min(self.cnt, other.cnt) as usize) {
+            if self.seq[i] != other.seq[i] {
+                return false;
+            }
+        }
+        true
     }
 }
 
-impl<T: Field + Copy> Eq for ShortSeq<T> { }
+impl<T: Field + Copy, const N: usize> Eq for FixedSeq<T, N> { }
 
-impl<T: Field + Copy + Ord> PartialOrd for ShortSeq<T> {
+impl<T: Field + Copy + Ord, const N: usize> PartialOrd for FixedSeq<T, N> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<T: Field + Copy + Ord> Ord for ShortSeq<T> {
+impl<T: Field + Copy + Ord, const N: usize> Ord for FixedSeq<T, N> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.seq.cmp(&other.seq)
     }
 }
 
 
-impl<T: Field + Copy> Default for ShortSeq<T> {
+impl<T: Field + Copy, const N: usize> Default for FixedSeq<T, N> {
     #[inline]
     fn default() -> Self {
         Self {
-            seq: Default::default(),
-            cnt: 16
+            seq: [Default::default(); N],
+            cnt: N as u8
         }
     }
 }
 
-impl<T: Field + Copy> From<u32> for ShortSeq<T> {
+impl<T: Field + Copy, const N: usize> From<u32> for FixedSeq<T, N> {
     #[inline]
-    fn from(x: u32) -> ShortSeq<T> {
-        ShortSeq::promote(T::from(x))
+    fn from(x: u32) -> FixedSeq<T, N> {
+        FixedSeq::promote(T::from(x))
     }
 }
 
-impl<T: Field + Copy> Add for ShortSeq<T> {
+impl<T: Field + Copy, const N: usize> Add for FixedSeq<T, N> {
     type Output = Self;
 
     #[inline]
     fn add(self, other: Self) -> Self {
-        let mut seq: [T; 16] = [Default::default(); 16];
+        let mut seq: [T; N] = [Default::default(); N];
         // This seems to get automatically unrolled
         // Spelling it out explicitly makes no performance difference
         for (i, x) in seq.iter_mut().enumerate() {
@@ -63,12 +70,12 @@ impl<T: Field + Copy> Add for ShortSeq<T> {
     }
 }
 
-impl<T: Field + Copy> Neg for ShortSeq<T> {
+impl<T: Field + Copy, const N: usize> Neg for FixedSeq<T, N> {
     type Output = Self;
 
     #[inline]
     fn neg(self) -> Self {
-        let mut seq: [T; 16] = [Default::default(); 16];
+        let mut seq: [T; N] = [Default::default(); N];
         for (i, x) in seq.iter_mut().enumerate() {
             *x = -self.seq[i]
         }
@@ -79,12 +86,12 @@ impl<T: Field + Copy> Neg for ShortSeq<T> {
     }
 }
 
-impl<T: Field + Copy> Sub for ShortSeq<T> {
+impl<T: Field + Copy, const N: usize> Sub for FixedSeq<T, N> {
     type Output = Self;
 
     #[inline]
     fn sub(self, other: Self) -> Self {
-        let mut seq: [T; 16] = [Default::default(); 16];
+        let mut seq: [T; N] = [Default::default(); N];
         for (i, x) in seq.iter_mut().enumerate() {
             *x = self.seq[i] - other.seq[i]
         }
@@ -96,14 +103,14 @@ impl<T: Field + Copy> Sub for ShortSeq<T> {
 }
 
 
-impl<T: Field + Copy> Mul for ShortSeq<T> {
+impl<T: Field + Copy, const N: usize> Mul for FixedSeq<T, N> {
     type Output = Self;
 
     #[inline]
     fn mul(self, other: Self) -> Self {
-        let mut seq: [T; 16] = [Default::default(); 16];
-        for i in 0..16 {
-            for j in 0..16-i {
+        let mut seq: [T; N] = [Default::default(); N];
+        for i in 0..N {
+            for j in 0..N-i {
                 seq[i + j] = seq[i + j] + (self.seq[i] * other.seq[j]);
             }
         }
@@ -114,15 +121,15 @@ impl<T: Field + Copy> Mul for ShortSeq<T> {
     }
 }
 
-impl<T: Field + Copy> Div for ShortSeq<T> {
+impl<T: Field + Copy, const N: usize> Div for FixedSeq<T, N> {
     type Output = Self;
 
     #[inline]
     fn div(self, other: Self) -> Self {
-        let mut seq: [T; 16] = self.seq.clone();
-        for i in 0..16 {
+        let mut seq: [T; N] = self.seq.clone();
+        for i in 0..N {
             seq[i] = seq[i] / other.seq[0];
-            for j in (i+1)..16 {
+            for j in (i+1)..N {
                 seq[j] = seq[j] - seq[i] * other.seq[j - i];
             }
         }
@@ -133,7 +140,7 @@ impl<T: Field + Copy> Div for ShortSeq<T> {
     }
 }
 
-impl<T: Field + Copy> PowerSeries for ShortSeq<T> {
+impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
     type Coeff = T;
 
     #[inline]
@@ -150,15 +157,15 @@ impl<T: Field + Copy> PowerSeries for ShortSeq<T> {
 
     #[inline]
     fn identity() -> Self {
-        let mut res: ShortSeq<T> = Default::default();
+        let mut res: Self = Default::default();
         res.seq[1] = T::from(1);
         res
     }
 
     #[inline]
     fn derive(self) -> Self {
-        let mut seq: [T; 16] = [Default::default(); 16];
-        for i in 1..16 {
+        let mut seq: [T; N] = [Default::default(); N];
+        for i in 1..N {
             seq[i - 1] = self.seq[i] * T::from(i as u32);
         }
         Self {
@@ -169,13 +176,13 @@ impl<T: Field + Copy> PowerSeries for ShortSeq<T> {
 
     #[inline]
     fn integrate(self) -> Self {
-        let mut seq: [T; 16] = [Default::default(); 16];
-        for i in 1..16 {
+        let mut seq: [T; N] = [Default::default(); N];
+        for i in 1..N {
             seq[i] = self.seq[i - 1] / T::from(i as u32);
         }
         Self {
             seq: seq,
-            cnt: std::cmp::min(16, self.cnt + 1)
+            cnt: std::cmp::min(N as u8, self.cnt + 1)
         }
     }
 
@@ -204,7 +211,7 @@ impl<T: Field + Copy> PowerSeries for ShortSeq<T> {
 
     #[inline]
     fn hadamard(self, other: Self) -> Self {
-        let mut seq: [T; 16] = [Default::default(); 16];
+        let mut seq: [T; N] = [Default::default(); N];
         for (i, x) in seq.iter_mut().enumerate() {
             *x = self.seq[i] * other.seq[i]
         }
@@ -219,7 +226,7 @@ impl<T: Field + Copy> PowerSeries for ShortSeq<T> {
         // for now, tonnelli-shanks later
         assert!(self.seq[0] == T::from(1));
         let mut r = Self::promote(T::from(1));
-        for _i in 0..16 {
+        for _i in 0..N {
             let q = (self - r * r).tail_term() / (Self::promote(T::from(2)) * r).tail_term();
             if q == Self::promote(T::from(0)) {
                 return r;
@@ -236,9 +243,9 @@ impl<T: Field + Copy> PowerSeries for ShortSeq<T> {
 
     #[inline]
     fn lshift(self) -> Self {
-        let mut seq: [T; 16] = [Default::default(); 16];
+        let mut seq: [T; N] = [Default::default(); N];
         for (i, x) in seq.iter_mut().enumerate() {
-            *x = if i == 15 { Default::default() } else { self.seq[i+1] };
+            *x = if i + 1 == N { Default::default() } else { self.seq[i+1] };
         }
         Self {
             seq: seq,
@@ -248,38 +255,38 @@ impl<T: Field + Copy> PowerSeries for ShortSeq<T> {
 
     #[inline]
     fn rshift(self) -> Self {
-        let mut seq: [T; 16] = [Default::default(); 16];
+        let mut seq: [T; N] = [Default::default(); N];
         for (i, x) in seq.iter_mut().enumerate() {
             *x = if i == 0 { Default::default() } else { self.seq[i-1] };
         }
         Self {
             seq: seq,
-            cnt: std::cmp::min(16, self.cnt + 1)
+            cnt: std::cmp::min(N as u8, self.cnt + 1)
         }
     }
 }
 
-impl<T: Field + Copy> ShortSeq<T> {
-    fn new(arr: [T; 16]) -> Self {
+impl<T: Field + Copy, const N: usize> FixedSeq<T, N> {
+    fn new(arr: [T; N]) -> Self {
         Self {
             seq: arr,
-            cnt: 16
+            cnt: N as u8
         }
     }
-    fn new_u32(arr: [u32; 16]) -> Self {
-        let mut seq: [T; 16] = [Default::default(); 16];
+    fn new_u32(arr: [u32; N]) -> Self {
+        let mut seq: [T; N] = [Default::default(); N];
         for (i, x) in seq.iter_mut().enumerate() {
             *x = T::from(arr[i]);
         }
         Self {
             seq: seq,
-            cnt: 16
+            cnt: N as u8
         }
     }
     #[inline]
     fn tail_term(self) -> Self {
         let mut found = false;
-        let mut seq: [T; 16] = self.seq;
+        let mut seq: [T; N] = self.seq;
         for x in seq.iter_mut() {
             if *x == T::from(0) {
                 continue;

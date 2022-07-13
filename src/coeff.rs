@@ -1,11 +1,11 @@
 use std::ops::{Add, Sub, Mul, Neg, Div};
 
-const MODP32: u32 = 65521;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct ModIntP32 {
     x: u32
 }
 impl ModIntP32 {
+    const MOD: u32 = 65521;
     #[inline]
     pub fn sq(self) -> Self {
         self * self
@@ -31,7 +31,7 @@ impl Add for ModIntP32 {
     fn add(self, other: Self) -> Self {
         let res = self.x + other.x;
         Self {
-            x: if res >= MODP32 { res - MODP32 } else { res }
+            x: if res >= ModIntP32::MOD { res - ModIntP32::MOD } else { res }
         }
     }
 }
@@ -39,9 +39,9 @@ impl Sub for ModIntP32 {
     type Output = Self;
     #[inline]
     fn sub(self, other: Self) -> Self {
-        let res = MODP32 + self.x - other.x;
+        let res = ModIntP32::MOD + self.x - other.x;
         Self {
-            x: if res >= MODP32 { res - MODP32 } else { res }
+            x: if res >= ModIntP32::MOD { res - ModIntP32::MOD } else { res }
         }
     }
 }
@@ -50,7 +50,7 @@ impl Neg for ModIntP32 {
     #[inline]
     fn neg(self) -> Self {
         Self {
-            x: MODP32 - self.x
+            x: ModIntP32::MOD - self.x
         }
     }
 }
@@ -59,7 +59,7 @@ impl Mul for ModIntP32 {
     #[inline]
     fn mul(self, other: Self) -> Self {
         Self {
-            x: (self.x * other.x) % MODP32
+            x: (self.x * other.x) % ModIntP32::MOD
         }
     }
 }
@@ -74,7 +74,7 @@ impl From<u32> for ModIntP32 {
     #[inline]
     fn from(x: u32) -> ModIntP32 {
         ModIntP32 {
-            x: x % MODP32
+            x: x % ModIntP32::MOD
         }
     }
 }
@@ -107,21 +107,21 @@ impl std::str::FromStr for ModIntP32 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
-pub struct MersP31B32 {
+pub struct MersP31 {
     x: u32
 }
-const MERSENNEVAL32: u32 = 2147483647u32;
-impl MersP31B32 {
+impl MersP31 {
+    const MOD: u32 = 2147483647u32;
     #[inline]
     pub fn sq(self) -> Self {
         self * self
     }
     #[inline]
-    fn reduced(self) -> MersP31B32 {
+    fn reduced(self) -> MersP31 {
         // According to Godbolt this should emit a CMOV
         Self {
-            x: if self.x >= MERSENNEVAL32 {
-                self.x - MERSENNEVAL32
+            x: if self.x >= MersP31::MOD {
+                self.x - MersP31::MOD
             } else {
                 self.x
             }
@@ -130,75 +130,75 @@ impl MersP31B32 {
     #[inline]
      fn inv(self) -> Self {
         let mut t = (0u32, 1u32);
-        let mut r = (MERSENNEVAL32, self.x);
+        let mut r = (MersP31::MOD, self.x);
         while r.1 != 0 {
             let q = r.0 / r.1;
             t = (t.1, t.0.wrapping_sub(q * t.1));
             r = (r.1, r.0 - q * r.1);
         }
-        Self { x: if t.0 >= MERSENNEVAL32 { t.0.wrapping_add(MERSENNEVAL32) } else { t.0 } }
+        Self { x: if t.0 >= MersP31::MOD { t.0.wrapping_add(MersP31::MOD) } else { t.0 } }
     }
 }
-impl Add for MersP31B32 {
+impl Add for MersP31 {
     type Output = Self;
     #[inline]
     fn add(self, other: Self) -> Self {
         (Self { x: self.x + other.x }).reduced()
     }
 }
-impl Sub for MersP31B32 {
+impl Sub for MersP31 {
     type Output = Self;
     #[inline]
     fn sub(self, other: Self) -> Self {
         self + other.neg()
     }
 }
-impl Neg for MersP31B32 {
+impl Neg for MersP31 {
     type Output = Self;
     #[inline]
     fn neg(self) -> Self {
-        (Self { x: MERSENNEVAL32 - self.x }).reduced()
+        (Self { x: MersP31::MOD - self.x }).reduced()
     }
 }
-impl Mul for MersP31B32 {
+impl Mul for MersP31 {
     type Output = Self;
     #[inline]
     fn mul(self, other: Self) -> Self {
         let (r, k) = self.x.widening_mul(other.x);
-        let res = (r & MERSENNEVAL32) + (r >> 31) + (k << 1);
+        let res = (r & MersP31::MOD) + (r >> 31) + (k << 1);
         (Self { x: res }).reduced()
     }
 }
-impl Div for MersP31B32 {
+impl Div for MersP31 {
     type Output = Self;
     #[inline]
     fn div(self, other: Self) -> Self {
         self * other.inv()
     }
 }
-impl From<u32> for MersP31B32 {
+impl From<u32> for MersP31 {
     #[inline]
-    fn from(x: u32) -> MersP31B32 {
-        let res = (x & MERSENNEVAL32) + (x >> 31);
+    fn from(x: u32) -> MersP31 {
+        let res = (x & MersP31::MOD) + (x >> 31);
         (Self { x: res}).reduced()
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
-pub struct MersP61B64 {
+pub struct MersP61 {
     x: u64
 }
-const MERSENNEVAL64: u64 = 2305843009213693951u64;
-impl MersP61B64 {
+impl MersP61 {
+    const MOD: u64 = 2305843009213693951u64;
     #[inline]
     pub fn sq(self) -> Self {
         self * self
     }
     #[inline]
-    fn reduced(self) -> MersP61B64 {
+    fn reduced(self) -> MersP61 {
         Self {
-            x: if self.x >= MERSENNEVAL64 {
-                self.x - MERSENNEVAL64
+            x: if self.x >= MersP61::MOD {
+                self.x - MersP61::MOD
             } else {
                 self.x
             }
@@ -207,65 +207,65 @@ impl MersP61B64 {
     #[inline]
     fn inv(self) -> Self {
         let mut t = (0u64, 1u64);
-        let mut r = (MERSENNEVAL64, self.x);
+        let mut r = (MersP61::MOD, self.x);
         while r.1 != 0 {
             let q = r.0 / r.1;
             t = (t.1, t.0.wrapping_sub(q * t.1));
             r = (r.1, r.0 - q * r.1);
         }
-        Self { x: if t.0 >= MERSENNEVAL64 { t.0.wrapping_add(MERSENNEVAL64) } else { t.0 } }
+        Self { x: if t.0 >= MersP61::MOD { t.0.wrapping_add(MersP61::MOD) } else { t.0 } }
     }
 }
-impl Add for MersP61B64 {
+impl Add for MersP61 {
     type Output = Self;
     #[inline]
     fn add(self, other: Self) -> Self {
         (Self { x: self.x + other.x }).reduced()
     }
 }
-impl Sub for MersP61B64 {
+impl Sub for MersP61 {
     type Output = Self;
     #[inline]
     fn sub(self, other: Self) -> Self {
         self + other.neg()
     }
 }
-impl Neg for MersP61B64 {
+impl Neg for MersP61 {
     type Output = Self;
     #[inline]
     fn neg(self) -> Self {
-        (Self { x: MERSENNEVAL64 - self.x }).reduced()
+        (Self { x: MersP61::MOD - self.x }).reduced()
     }
 }
-impl Mul for MersP61B64 {
+impl Mul for MersP61 {
     type Output = Self;
     #[inline]
     fn mul(self, other: Self) -> Self {
         let (r, k) = self.x.widening_mul(other.x);
-        let res = (r & MERSENNEVAL64) + (r >> 61) + (k << 3);
+        let res = (r & MersP61::MOD) + (r >> 61) + (k << 3);
         (Self { x: res }).reduced()
     }
 }
-impl Div for MersP61B64 {
+impl Div for MersP61 {
     type Output = Self;
     #[inline]
     fn div(self, other: Self) -> Self {
         self * other.inv()
     }
 }
-impl From<u32> for MersP61B64 {
+impl From<u32> for MersP61 {
     #[inline]
-    fn from(x: u32) -> MersP61B64 {
+    fn from(x: u32) -> MersP61 {
         Self::from(x as u64)
     }
 }
-impl From<u64> for MersP61B64 {
+impl From<u64> for MersP61 {
     #[inline]
-    fn from(x: u64) -> MersP61B64 {
+    fn from(x: u64) -> MersP61 {
         let xp = x + 1;
         let z = ((xp >> 61) + xp) >> 61;
-        MersP61B64 {
-            x: (x + z) & MERSENNEVAL64
+        MersP61 {
+            x: (x + z) & MersP61::MOD
         }
     }
 }
