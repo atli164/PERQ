@@ -6,8 +6,8 @@ mod coeff;
 mod mathtypes;
 // mod genseqs;
 mod exprtree;
+mod interpolate;
 mod oeis;
-mod searcher;
 pub use mathtypes::{Ring, Field, PowerSeries};
 pub use coeff::{ModIntP32, MersP31, MersP61};
 pub use fixedseq::{ShortSeq};
@@ -15,5 +15,4 @@ pub use fixedseq::{ShortSeq};
 fn main() {
     let db = oeis::ShortSeqDB::<ModIntP32>::from_stripped("stripped".to_string()).unwrap();
     db.connectivity().unwrap();
-    // db.translate_ind("conn.txt".to_string()).unwrap();
 }

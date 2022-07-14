@@ -11,12 +11,7 @@ pub type ShortSeq<T> = FixedSeq<T, 16>;
 
 impl<T: Field + Copy, const N: usize> PartialEq for FixedSeq<T, N> {
     fn eq(&self, other: &Self) -> bool {
-        for i in 0..(std::cmp::min(self.cnt, other.cnt) as usize) {
-            if self.seq[i] != other.seq[i] {
-                return false;
-            }
-        }
-        true
+        self.seq[0..self.cnt as usize] == other.seq[0..other.cnt as usize] 
     }
 }
 
@@ -30,7 +25,7 @@ impl<T: Field + Copy + Ord, const N: usize> PartialOrd for FixedSeq<T, N> {
 
 impl<T: Field + Copy + Ord, const N: usize> Ord for FixedSeq<T, N> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.seq.cmp(&other.seq)
+        self.seq[0..self.cnt as usize].cmp(&other.seq[0..other.cnt as usize])
     }
 }
 
@@ -302,6 +297,12 @@ impl<T: Field + Copy, const N: usize> FixedSeq<T, N> {
             cnt: self.cnt
         }
     }
+    fn pop(&self) -> Self {
+        Self {
+            seq: self.seq,
+            cnt: self.cnt.saturating_sub(1)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -366,6 +367,6 @@ mod tests {
         let simple = ShortSeq::<ModIntP32>::new_u32([1, 11, 19, 23, 3, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
         assert_eq!(simple, (simple * simple).sqrt());
         let catalan = ShortSeq::<ModIntP32>::new_u32([1, 1, 2, 5, 14, 42, 132, 429, 1430, 4862, 16796, 58786, 208012, 742900, 2674440, 9694845]);
-        assert_eq!(catalan, catalan.lshift().sqrt());
+        assert_eq!(catalan.pop(), catalan.lshift().sqrt());
     }
 }

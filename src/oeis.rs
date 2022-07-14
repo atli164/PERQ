@@ -60,37 +60,22 @@ impl<T: Field + std::str::FromStr + Ord + Copy> ShortSeqDB<T> {
         Ok(db)
     }
 
-    pub fn translate_ind(self, conn: String) -> std::io::Result<()> {
-        let mut in_db = std::collections::BTreeMap::<ShortSeq<T>, usize>::new();
-        for i in 0..self.anum.len() {
-            if !in_db.contains_key(&self.seqs[i]) {
-                in_db.insert(self.seqs[i], i);
-            }
-        }
-        let in_file = std::fs::File::open(conn)?;
-        let reader = std::io::BufReader::new(in_file);
-        let mut out_file = std::fs::File::create("fix_conn.txt")?;
-        for line in reader.lines() {
-            let line = line?;
-            let mut iter = line.split(",");
-            let p1: String = iter.next().unwrap().to_string();
-            let ind: usize = iter.next().unwrap().parse().unwrap();
-            writeln!(out_file, "{},{}", p1, self.anum[ind])?;
-        }
-        Ok(())
-    }
-
     pub fn connectivity(self) -> std::io::Result<()> {
         let mut in_db = std::collections::BTreeMap::<ShortSeq<T>, usize>::new();
         let mut conn: Vec<(u32,u32)> = vec![];
         for i in 0..self.anum.len() {
-            if !in_db.contains_key(&self.seqs[i]) {
-                in_db.insert(self.seqs[i], i);
+            if self.seqs[i].cnt >= 10 {
+                if !in_db.contains_key(&self.seqs[i]) {
+                    in_db.insert(self.seqs[i], i);
+                }
             }
             conn.push((0, i as u32))
         }
         for i in 0..self.anum.len() {
             println!("{} / {}", i, self.anum.len());
+            if self.seqs[i].cnt < 10 {
+                continue;
+            }
             if *in_db.get(&self.seqs[i]).unwrap() != i {
                 continue;
             }
@@ -113,6 +98,9 @@ impl<T: Field + std::str::FromStr + Ord + Copy> ShortSeqDB<T> {
                 }
             }
             for j in (i+1)..self.anum.len() {
+                if self.seqs[j].cnt < 10 {
+                    continue;
+                }
                 if *in_db.get(&self.seqs[j]).unwrap() != j {
                     continue;
                 }
@@ -142,7 +130,7 @@ impl<T: Field + std::str::FromStr + Ord + Copy> ShortSeqDB<T> {
             }
         }
         conn.sort();
-        let strings: Vec<String> = conn.iter().map(|(x, y)| x.to_string() + "," + &y.to_string()).collect();
+        let strings: Vec<String> = conn.iter().map(|(x, y)| x.to_string() + "," + &self.anum[*y as usize].to_string()).collect();
         let mut file = std::fs::File::create("conn.txt")?;
         writeln!(file, "{}", strings.join(", "))?;
         Ok(())

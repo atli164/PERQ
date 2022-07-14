@@ -128,7 +128,7 @@ impl<T: Field + Copy> Matrix<T> {
             }
             aug[(i, i + self.c)] = T::from(1u32);
         }
-        let (reduced, det, rank) = aug.rref();
+        let (reduced, _det, rank) = aug.rref();
         if rank != self.c {
             return None;
         }
@@ -151,7 +151,7 @@ impl<T: Field + Copy> Matrix<T> {
             }
             aug[(i, self.c)] = targ[i];
         }
-        let (reduced, det, rank) = aug.rref();
+        let (reduced, _det, _rank) = aug.rref();
         let mut res = vec![Default::default(); self.c];
         for i in (0..self.r).rev() {
             let mut piv = 0;
