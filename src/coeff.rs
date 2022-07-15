@@ -7,7 +7,7 @@ pub struct ModIntP32 {
 impl ModIntP32 {
     const MOD: u32 = 65521;
     #[inline]
-    pub fn sq(self) -> Self {
+    fn sq(self) -> Self {
         self * self
     }
     #[inline]
@@ -113,10 +113,6 @@ pub struct MersP31 {
 impl MersP31 {
     const MOD: u32 = 2147483647u32;
     #[inline]
-    pub fn sq(self) -> Self {
-        self * self
-    }
-    #[inline]
     fn reduced(self) -> MersP31 {
         // According to Godbolt this should emit a CMOV
         Self {
@@ -190,10 +186,6 @@ pub struct MersP61 {
 }
 impl MersP61 {
     const MOD: u64 = 2305843009213693951u64;
-    #[inline]
-    pub fn sq(self) -> Self {
-        self * self
-    }
     #[inline]
     fn reduced(self) -> MersP61 {
         Self {

@@ -17,18 +17,18 @@ pub trait PowerSeries: Field {
     fn promote(coeff: Self::Coeff) -> Self;
     // Helper function to return polynomial identity function
     fn identity() -> Self;
-    fn coefficient(self, i: usize) -> Self::Coeff;
-    fn derive(self) -> Self;
-    fn integrate(self) -> Self;
+    fn coefficient(&self, i: usize) -> Self::Coeff;
+    fn derive(&self) -> Self;
+    fn integrate(&self) -> Self;
     // Compositional inverse, multiplicative inverse is done through Div
-    fn inverse(self) -> Self;
-    fn compose(self, other: Self) -> Self;
-    fn hadamard(self, other: Self) -> Self;
-    fn sqrt(self) -> Self;
+    fn inverse(&self) -> Self;
+    fn compose(&self, other: &Self) -> Self;
+    fn hadamard(&self, other: &Self) -> Self;
+    fn sqrt(&self) -> Self;
     // Skip for now
     // fn ratpow(self, p: i64, q: i64) -> Self;
     // Tail operation
-    fn lshift(self) -> Self;
+    fn lshift(&self) -> Self;
     // Multiply by x
-    fn rshift(self) -> Self;
+    fn rshift(&self) -> Self;
 }

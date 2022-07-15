@@ -31,7 +31,7 @@ impl<T: Field + std::str::FromStr + Ord + Copy> ShortSeqDB<T> {
             if line.starts_with('#') {
                 continue;
             }
-            let mut vals = [T::default(); 16];
+            let mut vals = [Default::default(); 16];
             let mut ind = 0;
             let mut iter = line.split(",");
             // Line starts with "A". Unwrap is OK since A-numbers do not overflow 32 bits
@@ -64,16 +64,16 @@ impl<T: Field + std::str::FromStr + Ord + Copy> ShortSeqDB<T> {
         let mut in_db = std::collections::BTreeMap::<ShortSeq<T>, usize>::new();
         let mut conn: Vec<(u32,u32)> = vec![];
         for i in 0..self.anum.len() {
-            if self.seqs[i].cnt >= 10 {
+            if self.seqs[i].seq.len() >= 10 {
                 if !in_db.contains_key(&self.seqs[i]) {
-                    in_db.insert(self.seqs[i], i);
+                    in_db.insert(self.seqs[i].clone(), i);
                 }
             }
             conn.push((0, i as u32))
         }
         for i in 0..self.anum.len() {
             println!("{} / {}", i, self.anum.len());
-            if self.seqs[i].cnt < 10 {
+            if self.seqs[i].seq.len() < 10 {
                 continue;
             }
             if *in_db.get(&self.seqs[i]).unwrap() != i {
@@ -98,7 +98,7 @@ impl<T: Field + std::str::FromStr + Ord + Copy> ShortSeqDB<T> {
                 }
             }
             for j in (i+1)..self.anum.len() {
-                if self.seqs[j].cnt < 10 {
+                if self.seqs[j].seq.len() < 10 {
                     continue;
                 }
                 if *in_db.get(&self.seqs[j]).unwrap() != j {
@@ -108,15 +108,15 @@ impl<T: Field + std::str::FromStr + Ord + Copy> ShortSeqDB<T> {
                 let diff1 = self.seqs[i] - self.seqs[j];
                 let diff2 = self.seqs[j] - self.seqs[i];
                 let mul = self.seqs[i] * self.seqs[j];
-                let hadam = self.seqs[i].hadamard(self.seqs[j]);
+                let hadam = self.seqs[i].hadamard(&self.seqs[j]);
                 let mut cand2 = vec![sum, diff1, diff2, mul, hadam];
                 if self.seqs[i].seq[0] == T::from(0) {
-                    cand2.push(self.seqs[j].compose(self.seqs[i]));
+                    cand2.push(self.seqs[j].compose(&self.seqs[i]));
                 } else {
                     cand2.push(self.seqs[j] / self.seqs[i]);
                 }
                 if self.seqs[j].seq[0] == T::from(0) {
-                    cand2.push(self.seqs[i].compose(self.seqs[j]));
+                    cand2.push(self.seqs[i].compose(&self.seqs[j]));
                 } else {
                     cand2.push(self.seqs[i] / self.seqs[j]);
                 }

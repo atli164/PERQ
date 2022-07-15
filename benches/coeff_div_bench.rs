@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use perq::{Field, ModIntP32, MersP31B32, MersP61B64};
+use perq::{Field, ModIntP32, MersP31, MersP61};
 
 fn test_div<T: Field + Copy + std::fmt::Debug>(mxn: usize) {
     let mut sm = T::from(0);
@@ -24,8 +24,8 @@ macro_rules! bench_type {
 fn bench_div(c: &mut Criterion) {
     let mut group = c.benchmark_group("Coeff div test");
     bench_type!(group, ModIntP32, test_div);
-    bench_type!(group, MersP31B32, test_div);
-    bench_type!(group, MersP61B64, test_div);
+    bench_type!(group, MersP31, test_div);
+    bench_type!(group, MersP61, test_div);
 }
 
 criterion_group!(benches, bench_div);

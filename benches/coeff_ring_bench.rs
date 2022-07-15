@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use perq::{Ring, ModIntP32, MersP31B32, MersP61B64};
+use perq::{Ring, ModIntP32, MersP31, MersP61};
 
 fn test_fib<T: Ring + Copy + std::fmt::Debug>(mxn: usize) {
     let mut a = T::from(0);
@@ -27,8 +27,8 @@ macro_rules! bench_type {
 fn bench_fib(c: &mut Criterion) {
     let mut group = c.benchmark_group("Coeff test on Fib");
     bench_type!(group, ModIntP32, test_fib);
-    bench_type!(group, MersP31B32, test_fib);
-    bench_type!(group, MersP61B64, test_fib);
+    bench_type!(group, MersP31, test_fib);
+    bench_type!(group, MersP61, test_fib);
 }
 
 criterion_group!(benches, bench_fib);

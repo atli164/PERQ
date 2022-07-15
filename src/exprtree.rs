@@ -2,137 +2,137 @@ use crate::{PowerSeries, Field};
 use std::ops::{Add, Sub, Mul, Neg, Div};
 
 #[derive(Debug, Clone)]
-enum PowerSeriesExpr<T: PowerSeries> {
+enum SeqExprTree<T: PowerSeries> {
     Leaf(T),
-    Add(Box<PowerSeriesExpr<T>>, Box<PowerSeriesExpr<T>>),
-    Sub(Box<PowerSeriesExpr<T>>, Box<PowerSeriesExpr<T>>),
-    Mul(Box<PowerSeriesExpr<T>>, Box<PowerSeriesExpr<T>>),
-    Div(Box<PowerSeriesExpr<T>>, Box<PowerSeriesExpr<T>>),
-    Compose(Box<PowerSeriesExpr<T>>, Box<PowerSeriesExpr<T>>),
-    Hadamard(Box<PowerSeriesExpr<T>>, Box<PowerSeriesExpr<T>>),
-    Neg(Box<PowerSeriesExpr<T>>),
-    LShift(Box<PowerSeriesExpr<T>>),
-    RShift(Box<PowerSeriesExpr<T>>),
-    Derive(Box<PowerSeriesExpr<T>>),
-    Integrate(Box<PowerSeriesExpr<T>>),
-    Inverse(Box<PowerSeriesExpr<T>>),
-    Sqrt(Box<PowerSeriesExpr<T>>),
+    Add(Box<SeqExprTree<T>>, Box<SeqExprTree<T>>),
+    Sub(Box<SeqExprTree<T>>, Box<SeqExprTree<T>>),
+    Mul(Box<SeqExprTree<T>>, Box<SeqExprTree<T>>),
+    Div(Box<SeqExprTree<T>>, Box<SeqExprTree<T>>),
+    Compose(Box<SeqExprTree<T>>, Box<SeqExprTree<T>>),
+    Hadamard(Box<SeqExprTree<T>>, Box<SeqExprTree<T>>),
+    Neg(Box<SeqExprTree<T>>),
+    LShift(Box<SeqExprTree<T>>),
+    RShift(Box<SeqExprTree<T>>),
+    Derive(Box<SeqExprTree<T>>),
+    Integrate(Box<SeqExprTree<T>>),
+    Inverse(Box<SeqExprTree<T>>),
+    Sqrt(Box<SeqExprTree<T>>),
 }
 
-impl<T: PowerSeries> Default for PowerSeriesExpr<T> {
+impl<T: PowerSeries> Default for SeqExprTree<T> {
     fn default() -> Self {
-        PowerSeriesExpr::Leaf(T::default())
+        SeqExprTree::Leaf(T::default())
     }
 }
 
-impl<T: PowerSeries> PartialEq for PowerSeriesExpr<T> {
+impl<T: PowerSeries> PartialEq for SeqExprTree<T> {
     fn eq(&self, other: &Self) -> bool {
         self.eval() == other.eval()
     }
 }
 
-impl<T: PowerSeries> PowerSeriesExpr<T> {
+impl<T: PowerSeries> SeqExprTree<T> {
     fn eval(&self) -> T {
         match self {
-            PowerSeriesExpr::Leaf(x) => x.clone(),
-            PowerSeriesExpr::Add(x, y) => x.eval() + y.eval(),
-            PowerSeriesExpr::Sub(x, y) => x.eval() - y.eval(),
-            PowerSeriesExpr::Mul(x, y) => x.eval() * y.eval(),
-            PowerSeriesExpr::Div(x, y) => x.eval() / y.eval(),
-            PowerSeriesExpr::Compose(x, y) => x.eval().compose(y.eval()),
-            PowerSeriesExpr::Hadamard(x, y) => x.eval().hadamard(y.eval()),
-            PowerSeriesExpr::Neg(x) => -x.eval(),
-            PowerSeriesExpr::LShift(x) => x.eval().lshift(),
-            PowerSeriesExpr::RShift(x) => x.eval().rshift(),
-            PowerSeriesExpr::Derive(x) => x.eval().derive(),
-            PowerSeriesExpr::Integrate(x) => x.eval().integrate(),
-            PowerSeriesExpr::Inverse(x) => x.eval().inverse(),
-            PowerSeriesExpr::Sqrt(x) => x.eval().sqrt(),
+            SeqExprTree::Leaf(x) => x.clone(),
+            SeqExprTree::Add(x, y) => x.eval() + y.eval(),
+            SeqExprTree::Sub(x, y) => x.eval() - y.eval(),
+            SeqExprTree::Mul(x, y) => x.eval() * y.eval(),
+            SeqExprTree::Div(x, y) => x.eval() / y.eval(),
+            SeqExprTree::Compose(x, y) => x.eval().compose(&y.eval()),
+            SeqExprTree::Hadamard(x, y) => x.eval().hadamard(&y.eval()),
+            SeqExprTree::Neg(x) => -x.eval(),
+            SeqExprTree::LShift(x) => x.eval().lshift(),
+            SeqExprTree::RShift(x) => x.eval().rshift(),
+            SeqExprTree::Derive(x) => x.eval().derive(),
+            SeqExprTree::Integrate(x) => x.eval().integrate(),
+            SeqExprTree::Inverse(x) => x.eval().inverse(),
+            SeqExprTree::Sqrt(x) => x.eval().sqrt(),
         }
     }
 }
 
-impl<T: PowerSeries> From<u32> for PowerSeriesExpr<T> {
+impl<T: PowerSeries> From<u32> for SeqExprTree<T> {
     fn from(x: u32) -> Self {
-        PowerSeriesExpr::Leaf(T::from(x))
+        SeqExprTree::Leaf(T::from(x))
     }
 }
 
-impl<T: PowerSeries> Add for PowerSeriesExpr<T> {
+impl<T: PowerSeries> Add for SeqExprTree<T> {
     type Output = Self;
     fn add(self, o: Self) -> Self {
-        PowerSeriesExpr::Add(Box::new(self), Box::new(o))
+        SeqExprTree::Add(Box::new(self), Box::new(o))
     }
 }
 
-impl<T: PowerSeries> Sub for PowerSeriesExpr<T> {
+impl<T: PowerSeries> Sub for SeqExprTree<T> {
     type Output = Self;
     fn sub(self, o: Self) -> Self {
-        PowerSeriesExpr::Sub(Box::new(self), Box::new(o))
+        SeqExprTree::Sub(Box::new(self), Box::new(o))
     }
 }
 
-impl<T: PowerSeries> Neg for PowerSeriesExpr<T> {
+impl<T: PowerSeries> Neg for SeqExprTree<T> {
     type Output = Self;
     fn neg(self) -> Self {
-        PowerSeriesExpr::Neg(Box::new(self))
+        SeqExprTree::Neg(Box::new(self))
     }
 }
 
-impl<T: PowerSeries> Mul for PowerSeriesExpr<T> {
+impl<T: PowerSeries> Mul for SeqExprTree<T> {
     type Output = Self;
     fn mul(self, o: Self) -> Self {
-        PowerSeriesExpr::Mul(Box::new(self), Box::new(o))
+        SeqExprTree::Mul(Box::new(self), Box::new(o))
     }
 }
 
-impl<T: PowerSeries> Div for PowerSeriesExpr<T> {
+impl<T: PowerSeries> Div for SeqExprTree<T> {
     type Output = Self;
     fn div(self, o: Self) -> Self {
-        PowerSeriesExpr::Div(Box::new(self), Box::new(o))
+        SeqExprTree::Div(Box::new(self), Box::new(o))
     }
 }
 
-impl<F: Field + Copy, T: PowerSeries<Coeff = F>> PowerSeries for PowerSeriesExpr<T> {
+impl<F: Field + Copy, T: PowerSeries<Coeff = F>> PowerSeries for SeqExprTree<T> {
     type Coeff = F;
     fn promote(coeff: Self::Coeff) -> Self {
-        PowerSeriesExpr::Leaf(T::promote(coeff))
+        SeqExprTree::Leaf(T::promote(coeff))
     }
     fn identity() -> Self {
-        PowerSeriesExpr::Leaf(T::identity())
+        SeqExprTree::Leaf(T::identity())
     }
     fn coefficient(self, i: usize) -> Self::Coeff {
         self.eval().coefficient(i)
     }
-    fn derive(self) -> Self {
-        PowerSeriesExpr::Derive(Box::new(self))
+    fn derive(&self) -> Self {
+        SeqExprTree::Derive(Box::new(self))
     }
-    fn integrate(self) -> Self {
-        PowerSeriesExpr::Integrate(Box::new(self))
+    fn integrate(&self) -> Self {
+        SeqExprTree::Integrate(Box::new(self))
     }
-    fn inverse(self) -> Self {
-        PowerSeriesExpr::Inverse(Box::new(self))
+    fn inverse(&self) -> Self {
+        SeqExprTree::Inverse(Box::new(self))
     }
-    fn compose(self, other: Self) -> Self {
-        PowerSeriesExpr::Compose(Box::new(self), Box::new(other))
+    fn compose(&self, other: Self) -> Self {
+        SeqExprTree::Compose(Box::new(self), Box::new(other))
     }
-    fn hadamard(self, other: Self) -> Self {
-        PowerSeriesExpr::Hadamard(Box::new(self), Box::new(other))
+    fn hadamard(&self, other: Self) -> Self {
+        SeqExprTree::Hadamard(Box::new(self), Box::new(other))
     }
-    fn sqrt(self) -> Self {
-        PowerSeriesExpr::Sqrt(Box::new(self))
+    fn sqrt(&self) -> Self {
+        SeqExprTree::Sqrt(Box::new(self))
     }
-    fn lshift(self) -> Self {
-        PowerSeriesExpr::LShift(Box::new(self))
+    fn lshift(&self) -> Self {
+        SeqExprTree::LShift(Box::new(self))
     }
-    fn rshift(self) -> Self {
-        PowerSeriesExpr::RShift(Box::new(self))
+    fn rshift(&self) -> Self {
+        SeqExprTree::RShift(Box::new(self))
     }
 }
 
 
 /*
-pub trait PowerSeriesExpr {
+pub trait SeqExprTree {
     type SeriesType: PowerSeries;
     fn eval(&self) -> Self::SeriesType; 
 }
@@ -142,12 +142,12 @@ pub struct LeafExpr<T: PowerSeries> {
     series: T
 }
 
-impl<T: PowerSeries> PowerSeriesExpr for LeafExpr<T> {
+impl<T: PowerSeries> SeqExprTree for LeafExpr<T> {
     type SeriesType = T;
     fn eval(&self) -> T { self.series }
 }
 
-type BoxedNode<T> = Box<dyn PowerSeriesExpr<SeriesType = T>>;
+type BoxedNode<T> = Box<dyn SeqExprTree<SeriesType = T>>;
 
 macro_rules! binop_type {
     ( $n:ident, $f:tt ) => {
@@ -156,7 +156,7 @@ macro_rules! binop_type {
             rght_expr: BoxedNode<T>
         }
 
-        impl<T: PowerSeries> PowerSeriesExpr for $n<T> {
+        impl<T: PowerSeries> SeqExprTree for $n<T> {
             type SeriesType = T;
             fn eval(&self) -> T { self.left_expr.eval().$f(self.rght_expr.eval()) }
         }
@@ -176,7 +176,7 @@ macro_rules! unop_type {
             sub_expr: BoxedNode<T>
         }
 
-        impl<T: PowerSeries> PowerSeriesExpr for $n<T> {
+        impl<T: PowerSeries> SeqExprTree for $n<T> {
             type SeriesType = T;
             fn eval(&self) -> T { self.sub_expr.eval().$f() }
         }

@@ -121,7 +121,7 @@ impl<T: Field + Copy, const N: usize> Div for FixedSeq<T, N> {
 
     #[inline]
     fn div(self, other: Self) -> Self {
-        let mut seq: [T; N] = self.seq.clone();
+        let mut seq: [T; N] = self.seq;
         for i in 0..N {
             seq[i] = seq[i] / other.seq[0];
             for j in (i+1)..N {
@@ -146,7 +146,7 @@ impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
     }
 
     #[inline]
-    fn coefficient(self, i: usize) -> Self::Coeff {
+    fn coefficient(&self, i: usize) -> Self::Coeff {
         self.seq[i]
     }
 
@@ -158,7 +158,7 @@ impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
     }
 
     #[inline]
-    fn derive(self) -> Self {
+    fn derive(&self) -> Self {
         let mut seq: [T; N] = [Default::default(); N];
         for i in 1..N {
             seq[i - 1] = self.seq[i] * T::from(i as u32);
@@ -170,7 +170,7 @@ impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
     }
 
     #[inline]
-    fn integrate(self) -> Self {
+    fn integrate(&self) -> Self {
         let mut seq: [T; N] = [Default::default(); N];
         for i in 1..N {
             seq[i] = self.seq[i - 1] / T::from(i as u32);
@@ -182,10 +182,10 @@ impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
     }
 
     #[inline]
-    fn compose(self, other: Self) -> Self {
+    fn compose(&self, other: &Self) -> Self {
         assert_eq!(other.seq[0], T::from(0));
-        if self.cnt == 1 { return self; }
-        let reccomp = self.lshift().compose(other);
+        if self.cnt == 1 { return self.clone(); }
+        let reccomp = self.lshift().compose(&other);
         let mut tail = (other.lshift() * reccomp).rshift();
         tail.seq[0] = tail.seq[0] + self.seq[0];
         // cnt value?
@@ -193,19 +193,19 @@ impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
     }
 
     #[inline]
-    fn inverse(self) -> Self {
+    fn inverse(&self) -> Self {
         assert_eq!(self.seq[0], T::from(0));
         let mut r: Self = Default::default();
-        let comp = self.lshift();
+        let comp = self.clone().lshift();
         r.cnt = self.cnt;
         for _i in 0..self.cnt {
-            r = (Self::promote(T::from(1)) / comp.compose(r)).rshift();
+            r = (Self::promote(T::from(1)) / comp.compose(&r)).rshift();
         }
         return r;
     }
 
     #[inline]
-    fn hadamard(self, other: Self) -> Self {
+    fn hadamard(&self, other: &Self) -> Self {
         let mut seq: [T; N] = [Default::default(); N];
         for (i, x) in seq.iter_mut().enumerate() {
             *x = self.seq[i] * other.seq[i]
@@ -217,12 +217,12 @@ impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
     }
 
     #[inline]
-    fn sqrt(self) -> Self {
+    fn sqrt(&self) -> Self {
         // for now, tonnelli-shanks later
         assert!(self.seq[0] == T::from(1));
         let mut r = Self::promote(T::from(1));
         for _i in 0..N {
-            let q = (self - r * r).tail_term() / (Self::promote(T::from(2)) * r).tail_term();
+            let q = (self.clone() - r.clone() * r.clone()).tail_term() / (Self::promote(T::from(2)) * r.clone()).tail_term();
             if q == Self::promote(T::from(0)) {
                 return r;
             }
@@ -237,7 +237,7 @@ impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
     //}
 
     #[inline]
-    fn lshift(self) -> Self {
+    fn lshift(&self) -> Self {
         let mut seq: [T; N] = [Default::default(); N];
         for (i, x) in seq.iter_mut().enumerate() {
             *x = if i + 1 == N { Default::default() } else { self.seq[i+1] };
@@ -249,7 +249,7 @@ impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
     }
 
     #[inline]
-    fn rshift(self) -> Self {
+    fn rshift(&self) -> Self {
         let mut seq: [T; N] = [Default::default(); N];
         for (i, x) in seq.iter_mut().enumerate() {
             *x = if i == 0 { Default::default() } else { self.seq[i-1] };
@@ -281,7 +281,7 @@ impl<T: Field + Copy, const N: usize> FixedSeq<T, N> {
     #[inline]
     fn tail_term(self) -> Self {
         let mut found = false;
-        let mut seq: [T; N] = self.seq;
+        let mut seq = self.seq.clone();
         for x in seq.iter_mut() {
             if *x == T::from(0) {
                 continue;
