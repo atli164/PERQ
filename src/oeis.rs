@@ -2,6 +2,9 @@ use crate::{ShortSeq, Field};
 use crate::mathtypes::PowerSeries;
 use crate::hashing::FastIntHashTable;
 use std::io::{BufRead, Write};
+use rayon::prelude::*;
+use std::sync::atomic::AtomicU32;
+use std::sync::atomic::Ordering::SeqCst;
 
 #[derive(Debug, Default)]
 pub struct ShortSeqDB<T: Field + Copy> {
@@ -10,7 +13,7 @@ pub struct ShortSeqDB<T: Field + Copy> {
     seqs: Vec<ShortSeq<T>>
 }
 
-impl<T: Field + std::str::FromStr + Ord + Copy> ShortSeqDB<T> {
+impl<T: Field + std::str::FromStr + Ord + Copy + std::marker::Sync> ShortSeqDB<T> {
     fn new() -> Self {
         Default::default()
     }
@@ -62,22 +65,22 @@ impl<T: Field + std::str::FromStr + Ord + Copy> ShortSeqDB<T> {
 
     pub fn connectivity(self) -> std::io::Result<()> {
         let mut in_db = std::collections::BTreeMap::<ShortSeq<T>, usize>::new();
-        let mut conn: Vec<(u32,u32)> = vec![];
+        let mut conn = vec![];
         for i in 0..self.anum.len() {
             if self.seqs[i].seq.len() >= 10 {
                 if !in_db.contains_key(&self.seqs[i]) {
                     in_db.insert(self.seqs[i].clone(), i);
                 }
             }
-            conn.push((0, i as u32))
+            conn.push((AtomicU32::new(0), i as u32))
         }
-        for i in 0..self.anum.len() {
+        (0..self.anum.len()).into_par_iter().for_each(|i| {
             println!("{} / {}", i, self.anum.len());
-            if self.seqs[i].seq.len() < 10 {
-                continue;
+            if self.seqs[i].cnt < 10 {
+                return;
             }
             if *in_db.get(&self.seqs[i]).unwrap() != i {
-                continue;
+                return;
             }
             let deriv = self.seqs[i].derive();
             let integ = self.seqs[i].integrate();
@@ -93,8 +96,8 @@ impl<T: Field + std::str::FromStr + Ord + Copy> ShortSeqDB<T> {
             }
             for seq in cand1 {
                 if let Some(j) = in_db.get(&seq) {
-                    conn[i].0 += 1;
-                    conn[*j].0 += 1;
+                    conn[i].0.fetch_add(1, SeqCst);
+                    conn[*j].0.fetch_add(1, SeqCst);
                 }
             }
             for j in (i+1)..self.anum.len() {
@@ -108,8 +111,7 @@ impl<T: Field + std::str::FromStr + Ord + Copy> ShortSeqDB<T> {
                 let diff1 = self.seqs[i] - self.seqs[j];
                 let diff2 = self.seqs[j] - self.seqs[i];
                 let mul = self.seqs[i] * self.seqs[j];
-                let hadam = self.seqs[i].hadamard(&self.seqs[j]);
-                let mut cand2 = vec![sum, diff1, diff2, mul, hadam];
+                let mut cand2 = vec![sum, diff1, diff2, mul];
                 if self.seqs[i].seq[0] == T::from(0) {
                     cand2.push(self.seqs[j].compose(&self.seqs[i]));
                 } else {
@@ -122,15 +124,16 @@ impl<T: Field + std::str::FromStr + Ord + Copy> ShortSeqDB<T> {
                 }
                 for seq in cand2 {
                     if let Some(k) = in_db.get(&seq) {
-                        conn[i].0 += 1;
-                        conn[j].0 += 1;
-                        conn[*k].0 += 1;
+                        conn[i].0.fetch_add(1, SeqCst);
+                        conn[j].0.fetch_add(1, SeqCst);
+                        conn[*k].0.fetch_add(1, SeqCst);
                     }
                 }
             }
-        }
-        conn.sort();
-        let strings: Vec<String> = conn.iter().map(|(x, y)| x.to_string() + "," + &self.anum[*y as usize].to_string()).collect();
+        });
+        let mut to_sort: Vec<(u32, u32)> = conn.iter().map(|(x, y)| (x.load(SeqCst), *y)).collect();
+        to_sort.sort();
+        let strings: Vec<String> = to_sort.iter().map(|(x, y)| x.to_string() + "," + &self.anum[*y as usize].to_string()).collect();
         let mut file = std::fs::File::create("conn.txt")?;
         writeln!(file, "{}", strings.join(", "))?;
         Ok(())
