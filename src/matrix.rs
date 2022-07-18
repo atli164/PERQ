@@ -75,7 +75,7 @@ impl<T: Ring + Copy> Matrix<T> {
         Self {
             r: r,
             c: c,
-            dat: vec![Default::default(); r * c]
+            dat: vec![T::zero(); r * c]
         }
     }
 }
@@ -152,14 +152,14 @@ impl<T: Field + Copy> Matrix<T> {
             aug[(i, self.c)] = targ[i];
         }
         let (reduced, _det, _rank) = aug.rref();
-        let mut res = vec![Default::default(); self.c];
+        let mut res = vec![T::zero(); self.c];
         for i in (0..self.r).rev() {
             let mut piv = 0;
-            while piv < self.c && reduced[(i, piv)] == T::from(0u32) {
+            while piv < self.c && reduced[(i, piv)].is_zero() {
                 piv += 1;
             }
             if piv == self.c {
-                if reduced[(i, piv)] != T::from(0u32) {
+                if !reduced[(i, piv)].is_zero() {
                     return None;
                 } else {
                     continue;

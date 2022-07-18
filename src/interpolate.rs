@@ -14,8 +14,8 @@ use crate::matrix::Matrix;
 
 // berlekamp-massey algorithm
 pub fn find_c_recursive<T: Field + Copy>(seq: &Vec<T>, max_deg: usize) -> Option<Vec<T>> {
-    let (mut m, mut l, mut b) = (1, 0, T::from(1u32));
-    let (mut cp, mut bp, mut tmp, mut res) = (vec![T::from(1u32)], vec![T::from(1u32)], vec![], vec![]);
+    let (mut m, mut l, mut b) = (1, 0, T::one());
+    let (mut cp, mut bp, mut tmp, mut res) = (vec![T::one()], vec![T::one()], vec![], vec![]);
     for i in 0..seq.len() {
         if l > max_deg {
             return None;
@@ -31,7 +31,7 @@ pub fn find_c_recursive<T: Field + Copy>(seq: &Vec<T>, max_deg: usize) -> Option
         let sw = 2 * l <= i;
         if sw {
             l = i + 1 - l;
-            cp.resize_with(l + 1, Default::default);
+            cp.resize_with(l + 1, T::zero);
             tmp = cp.clone();
         }
         let a = d / b;
@@ -154,7 +154,7 @@ pub fn find_p_recursive<T: Field + Copy>(seq: &Vec<T>, max_deg: usize, max_num: 
             }
             sm = sm + psm * seq[i + r];
         }
-        if sm != T::from(0u32) {
+        if !sm.is_zero() {
             return None;
         }
     }

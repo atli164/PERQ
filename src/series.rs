@@ -1,6 +1,7 @@
-use std::ops::{Add, Sub, Neg, Mul, Div};
+use std::ops::{Add, Sub, Neg, Mul, Div, AddAssign, SubAssign, MulAssign, DivAssign};
 use std::iter::{zip, once};
 use crate::{PowerSeries};
+use crate::mathtypes::{Zero, One};
 use rug::{Rational, Complete};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
@@ -8,54 +9,45 @@ pub struct Series {
     pub seq: Vec<Rational>
 }
 
+impl Zero for Series {
+    #[inline]
+    fn zero() -> Self {
+        Self {
+            seq: vec![Rational::new()]
+        }
+    }
+    #[inline]
+    fn is_zero(&self) -> bool {
+        if self.seq.is_empty() {
+            return false;
+        }
+        self.seq.iter().all(|x| x.cmp0() == std::cmp::Ordering::Equal)
+    }
+}
+
+impl One for Series {
+    #[inline]
+    fn one() -> Self {
+        Self {
+            seq: vec![Rational::from(1)]
+        }
+    }
+    #[inline]
+    fn is_one(&self) -> bool {
+        if self.seq.is_empty() {
+            return false;
+        }
+        if self.seq[0].cmp(&1.into()) != std::cmp::Ordering::Equal {
+            return false;
+        }
+        self.seq.iter().skip(1).all(|x| x.cmp0() == std::cmp::Ordering::Equal)
+    }
+}
+
 impl From<u32> for Series {
     #[inline]
     fn from(x: u32) -> Series {
         Series::promote(Rational::from(x))
-    }
-}
-
-macro_rules! forward_binop_impl {
-    (impl $imp:ident, $method:ident for $t:ty) => {
-        impl<'a> $imp<$t> for &'a $t {
-            type Output = $t;
-
-            #[inline]
-            fn $method(self, other: $t) -> $t {
-                $imp::$method(self, &other)
-            }
-        }
-
-        impl<'a> $imp<&'a $t> for $t {
-            type Output = $t;
-
-            #[inline]
-            fn $method(self, other: &'a $t) -> $t {
-                $imp::$method(&self, other)
-            }
-        }
-
-        impl $imp<$t> for $t {
-            type Output = $t;
-
-            #[inline]
-            fn $method(self, other: $t) -> $t {
-                $imp::$method(&self, &other)
-            }
-        }
-    }
-}
-
-macro_rules! forward_unop_impl {
-    (impl $imp:ident, $method:ident for $t:ty) => {
-        impl $imp for $t {
-            type Output = $t;
-
-            #[inline]
-            fn $method(self) -> $t {
-                $imp::$method(&self)
-            }
-        }
     }
 }
 
@@ -71,6 +63,15 @@ impl<'a, 'b> Add<&'a Series> for &'b Series {
 }
 
 forward_binop_impl! { impl Add, add for Series }
+
+impl<'a> AddAssign<&'a Series> for Series {
+    #[inline]
+    fn add_assign(&mut self, other: &'a Series) {
+        zip(self.seq.iter_mut(), other.seq.iter()).for_each(|(x, y)| *x += y);
+    }
+}
+
+forward_assign_impl! { impl AddAssign, add_assign for Series }
 
 impl<'a> Neg for &'a Series {
     type Output = Series;
@@ -98,6 +99,15 @@ impl<'a, 'b> Sub<&'a Series> for &'b Series {
 
 forward_binop_impl! { impl Sub, sub for Series }
 
+impl<'a> SubAssign<&'a Series> for Series {
+    #[inline]
+    fn sub_assign(&mut self, other: &'a Series) {
+        zip(self.seq.iter_mut(), other.seq.iter()).for_each(|(x, y)| *x -= y);
+    }
+}
+
+forward_assign_impl! { impl SubAssign, sub_assign for Series }
+
 impl<'a, 'b> Mul<&'a Series> for &'b Series {
     type Output = Series;
 
@@ -119,23 +129,39 @@ impl<'a, 'b> Mul<&'a Series> for &'b Series {
 
 forward_binop_impl! { impl Mul, mul for Series }
 
+impl<'a> MulAssign<&'a Series> for Series {
+    #[inline]
+    fn mul_assign(&mut self, other: &'a Series) {
+        *self = &*self * other;
+    }
+}
+
+forward_assign_impl! { impl MulAssign, mul_assign for Series }
+
+impl<'a> DivAssign<&'a Series> for Series {
+    #[inline]
+    fn div_assign(&mut self, other: &'a Series) {
+        let n = std::cmp::min(self.seq.len(), other.seq.len());
+        for i in 0..n {
+            self.seq[i] /= &other.seq[0];
+            for j in (i+1)..n {
+                let prod = (&self.seq[i] * &other.seq[j - i]).complete();
+                self.seq[j] -= prod;
+            }
+        }
+    }
+}
+
+forward_assign_impl! { impl DivAssign, div_assign for Series }
+
 impl<'a, 'b> Div<&'a Series> for &'b Series {
     type Output = Series;
 
     #[inline]
     fn div(self, other: &'a Series) -> Series {
-        let n = std::cmp::min(self.seq.len(), other.seq.len());
-        let mut seq = self.seq.clone();
-        for i in 0..n {
-            seq[i] /= &other.seq[0];
-            for j in (i+1)..n {
-                let prod = (&seq[i] * &other.seq[j - i]).complete();
-                seq[j] -= prod;
-            }
-        }
-        Series {
-            seq: seq
-        }
+        let mut cpy = self.clone();
+        cpy /= other;
+        cpy
     }
 }
 
@@ -222,10 +248,10 @@ impl PowerSeries for Series {
         r
     }
 
-    //#[inline]
-    //fn ratpow(self, p: i64, q: i64) -> Self {
-    //    unimplemented!()
-    //}
+    #[inline]
+    fn ratpow(self, _p: i64, _q: i64) -> Self {
+        unimplemented!()
+    }
 
     #[inline]
     fn lshift(&self) -> Self {
@@ -271,6 +297,7 @@ impl Series {
             ).collect()
         }
     }
+    #[inline]
     fn pop(&self) -> Self {
         Self {
             seq: self.seq.iter().take(self.seq.len() - 1).cloned().collect()

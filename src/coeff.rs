@@ -1,4 +1,5 @@
-use std::ops::{Add, Sub, Mul, Neg, Div};
+use std::ops::{Add, Sub, Mul, Neg, Div, AddAssign, SubAssign, MulAssign, DivAssign};
+use crate::mathtypes::{One, Zero};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct ModIntP32 {
@@ -25,51 +26,137 @@ impl ModIntP32 {
         y4 * x11 * x4 // 2^16 - 17 = p - 2
     }
 }
-impl Add for ModIntP32 {
-    type Output = Self;
+
+impl Zero for ModIntP32 {
+    fn zero() -> ModIntP32 {
+        ModIntP32 {
+            x: 0
+        }
+    }
+    fn is_zero(&self) -> bool {
+        self.x == 0
+    }
+}
+
+impl One for ModIntP32 {
+    fn one() -> ModIntP32 {
+        ModIntP32 {
+            x: 1
+        }
+    }
+    fn is_one(&self) -> bool {
+        self.x == 1
+    }
+}
+
+impl<'a, 'b> Add<&'a ModIntP32> for &'b ModIntP32 {
+    type Output = ModIntP32;
+
     #[inline]
-    fn add(self, other: Self) -> Self {
+    fn add(self, other: &'a ModIntP32) -> ModIntP32 {
         let res = self.x + other.x;
-        Self {
+        ModIntP32 {
             x: if res >= ModIntP32::MOD { res - ModIntP32::MOD } else { res }
         }
     }
 }
-impl Sub for ModIntP32 {
-    type Output = Self;
+
+forward_binop_impl! { impl Add, add for ModIntP32 }
+
+impl<'a> AddAssign<&'a ModIntP32> for ModIntP32 {
     #[inline]
-    fn sub(self, other: Self) -> Self {
+    fn add_assign(&mut self, other: &'a ModIntP32) {
+        self.x += other.x;
+        if self.x >= ModIntP32::MOD {
+            self.x -= ModIntP32::MOD;
+        }
+    }
+}
+
+forward_assign_impl! { impl AddAssign, add_assign for ModIntP32 }
+
+impl<'a, 'b> Sub<&'a ModIntP32> for &'b ModIntP32 {
+    type Output = ModIntP32;
+
+    #[inline]
+    fn sub(self, other: &'a ModIntP32) -> ModIntP32 {
         let res = ModIntP32::MOD + self.x - other.x;
-        Self {
+        ModIntP32 {
             x: if res >= ModIntP32::MOD { res - ModIntP32::MOD } else { res }
         }
     }
 }
-impl Neg for ModIntP32 {
-    type Output = Self;
+
+forward_binop_impl! { impl Sub, sub for ModIntP32 }
+
+impl<'a> SubAssign<&'a ModIntP32> for ModIntP32 {
     #[inline]
-    fn neg(self) -> Self {
-        Self {
+    fn sub_assign(&mut self, other: &'a ModIntP32) {
+        self.x += ModIntP32::MOD - other.x;
+        if self.x >= ModIntP32::MOD {
+            self.x -= ModIntP32::MOD;
+        }
+    }
+}
+
+forward_assign_impl! { impl SubAssign, sub_assign for ModIntP32 }
+
+impl<'a> Neg for &'a ModIntP32 {
+    type Output = ModIntP32;
+
+    #[inline]
+    fn neg(self) -> ModIntP32 {
+        ModIntP32 {
             x: ModIntP32::MOD - self.x
         }
     }
 }
-impl Mul for ModIntP32 {
-    type Output = Self;
+
+forward_unop_impl! { impl Neg, neg for ModIntP32 }
+
+impl<'a, 'b> Mul<&'a ModIntP32> for &'b ModIntP32 {
+    type Output = ModIntP32;
+
     #[inline]
-    fn mul(self, other: Self) -> Self {
-        Self {
+    fn mul(self, other: &'a ModIntP32) -> ModIntP32 {
+        ModIntP32 {
             x: (self.x * other.x) % ModIntP32::MOD
         }
     }
 }
-impl Div for ModIntP32 {
-    type Output = Self;
+
+forward_binop_impl! { impl Mul, mul for ModIntP32 }
+
+impl<'a> MulAssign<&'a ModIntP32> for ModIntP32 {
     #[inline]
-    fn div(self, other: Self) -> Self {
+    fn mul_assign(&mut self, other: &'a ModIntP32) {
+        self.x *= other.x;
+        self.x %= ModIntP32::MOD;
+    }
+}
+
+forward_assign_impl! { impl MulAssign, mul_assign for ModIntP32 }
+
+impl<'a, 'b> Div<&'a ModIntP32> for &'b ModIntP32 {
+    type Output = ModIntP32;
+
+    #[inline]
+    fn div(self, other: &'a ModIntP32) -> ModIntP32 {
         self * other.inv()
     }
 }
+
+forward_binop_impl! { impl Div, div for ModIntP32 }
+
+impl<'a> DivAssign<&'a ModIntP32> for ModIntP32 {
+    #[inline]
+    fn div_assign(&mut self, other: &'a ModIntP32) {
+        *self *= other.inv();
+    }
+}
+
+forward_assign_impl! { impl DivAssign, div_assign for ModIntP32 }
+
 impl From<u32> for ModIntP32 {
     #[inline]
     fn from(x: u32) -> ModIntP32 {

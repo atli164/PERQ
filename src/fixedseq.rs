@@ -1,42 +1,76 @@
-use std::ops::{Add, Sub, Neg, Mul, Div};
+use std::ops::{Add, Sub, Neg, Mul, Div, AddAssign, SubAssign, MulAssign, DivAssign};
 use crate::{Field, PowerSeries};
+use crate::mathtypes::{Zero, One};
+use std::iter::zip;
 
 #[derive(Debug, Clone, Copy)]
 pub struct FixedSeq<T: Field + Copy, const N: usize> {
     pub seq: [T; N],
-    pub cnt: u8
+    pub cnt: usize
 }
 
 pub type ShortSeq<T> = FixedSeq<T, 16>;
 
 impl<T: Field + Copy, const N: usize> PartialEq for FixedSeq<T, N> {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.seq[0..self.cnt as usize] == other.seq[0..other.cnt as usize] 
+        self.seq[0..self.cnt] == other.seq[0..other.cnt] 
     }
 }
 
 impl<T: Field + Copy, const N: usize> Eq for FixedSeq<T, N> { }
 
 impl<T: Field + Copy + Ord, const N: usize> PartialOrd for FixedSeq<T, N> {
+    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl<T: Field + Copy + Ord, const N: usize> Ord for FixedSeq<T, N> {
+    #[inline]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.seq[0..self.cnt as usize].cmp(&other.seq[0..other.cnt as usize])
+        self.seq[0..self.cnt].cmp(&other.seq[0..other.cnt])
     }
 }
 
 
-impl<T: Field + Copy, const N: usize> Default for FixedSeq<T, N> {
+impl<T: Field + Copy, const N: usize> One for FixedSeq<T, N> {
     #[inline]
-    fn default() -> Self {
+    fn one() -> Self {
+        let mut seq = [T::zero(); N];
+        seq[0] = T::one();
         Self {
-            seq: [Default::default(); N],
-            cnt: N as u8
+            seq: seq,
+            cnt: N
         }
+    }
+    #[inline]
+    fn is_one(&self) -> bool {
+        if self.cnt == 0 {
+            return false;
+        }
+        if !self.seq[0].is_one() {
+            return false;
+        }
+        self.seq[1..].iter().all(|x| x.is_zero())
+    }
+}
+
+impl<T: Field + Copy, const N: usize> Zero for FixedSeq<T, N> {
+    #[inline]
+    fn zero() -> Self {
+        Self {
+            seq: [T::zero(); N],
+            cnt: N
+        }
+    }
+    #[inline]
+    fn is_zero(&self) -> bool {
+        if self.cnt == 0 {
+            return false;
+        }
+        self.seq.iter().all(|x| x.is_zero())
     }
 }
 
@@ -47,100 +81,133 @@ impl<T: Field + Copy, const N: usize> From<u32> for FixedSeq<T, N> {
     }
 }
 
-impl<T: Field + Copy, const N: usize> Add for FixedSeq<T, N> {
-    type Output = Self;
-
+impl<'a, T: Field + Copy, const N: usize> AddAssign<&'a FixedSeq<T, N>> for FixedSeq<T, N> {
     #[inline]
-    fn add(self, other: Self) -> Self {
-        let mut seq: [T; N] = [Default::default(); N];
-        // This seems to get automatically unrolled
-        // Spelling it out explicitly makes no performance difference
-        for (i, x) in seq.iter_mut().enumerate() {
-            *x = self.seq[i] + other.seq[i]
-        }
-        Self {
-            seq: seq,
-            cnt: std::cmp::min(self.cnt, other.cnt)
-        }
+    fn add_assign(&mut self, other: &'a FixedSeq<T, N>) {
+        zip(self.seq.iter_mut(), other.seq.iter()).for_each(|(x, y)| *x += y);
+        self.cnt = std::cmp::min(self.cnt, other.cnt);
     }
 }
 
-impl<T: Field + Copy, const N: usize> Neg for FixedSeq<T, N> {
-    type Output = Self;
+forward_assign_impl! { impl AddAssign, add_assign for FixedSeq<T, N> where T: Field + std::marker::Copy, const N: usize }
+
+impl<'a, 'b, T: Field + Copy, const N: usize> Add<&'a FixedSeq<T, N>> for &'b FixedSeq<T, N> {
+    type Output = FixedSeq<T, N>;
 
     #[inline]
-    fn neg(self) -> Self {
-        let mut seq: [T; N] = [Default::default(); N];
+    fn add(self, other: &'a FixedSeq<T, N>) -> FixedSeq<T, N> {
+        let mut res = *self;
+        res += other;
+        res
+    }
+}
+
+forward_binop_impl! { impl Add, add for FixedSeq<T, N> where T: Field + std::marker::Copy, const N: usize }
+
+impl<'a, T: Field + Copy, const N: usize> Neg for &'a FixedSeq<T, N> {
+    type Output = FixedSeq<T, N>;
+
+    #[inline]
+    fn neg(self) -> FixedSeq<T, N> {
+        let mut seq: [T; N] = [T::zero(); N];
         for (i, x) in seq.iter_mut().enumerate() {
             *x = -self.seq[i]
         }
-        Self {
+        FixedSeq::<T, N> {
             seq: seq,
             cnt: self.cnt
         }
     }
 }
 
-impl<T: Field + Copy, const N: usize> Sub for FixedSeq<T, N> {
-    type Output = Self;
+forward_unop_impl! { impl Neg, neg for FixedSeq<T, N> where T: Field + std::marker::Copy, const N: usize }
 
+impl<'a, T: Field + Copy, const N: usize> SubAssign<&'a FixedSeq<T, N>> for FixedSeq<T, N> {
     #[inline]
-    fn sub(self, other: Self) -> Self {
-        let mut seq: [T; N] = [Default::default(); N];
-        for (i, x) in seq.iter_mut().enumerate() {
-            *x = self.seq[i] - other.seq[i]
-        }
-        Self {
-            seq: seq,
-            cnt: std::cmp::min(self.cnt, other.cnt)
-        }
+    fn sub_assign(&mut self, other: &'a FixedSeq<T, N>) {
+        zip(self.seq.iter_mut(), other.seq.iter()).for_each(|(x, y)| *x -= y);
+        self.cnt = std::cmp::min(self.cnt, other.cnt);
     }
 }
 
+forward_assign_impl! { impl SubAssign, sub_assign for FixedSeq<T, N> where T: Field + std::marker::Copy, const N: usize }
 
-impl<T: Field + Copy, const N: usize> Mul for FixedSeq<T, N> {
-    type Output = Self;
+impl<'a, 'b, T: Field + Copy, const N: usize> Sub<&'a FixedSeq<T, N>> for &'b FixedSeq<T, N> {
+    type Output = FixedSeq<T, N>;
 
     #[inline]
-    fn mul(self, other: Self) -> Self {
-        let mut seq: [T; N] = [Default::default(); N];
+    fn sub(self, other: &'a FixedSeq<T, N>) -> FixedSeq<T, N> {
+        let mut res = *self;
+        res += other;
+        res
+    }
+}
+
+forward_binop_impl! { impl Sub, sub for FixedSeq<T, N> where T: Field + std::marker::Copy, const N: usize }
+
+impl<'a, 'b, T: Field + Copy, const N: usize> Mul<&'a FixedSeq<T, N>> for &'b FixedSeq<T, N> {
+    type Output = FixedSeq<T, N>;
+
+    #[inline]
+    fn mul(self, other: &'a FixedSeq<T, N>) -> FixedSeq<T, N> {
+        let mut seq: [T; N] = [T::zero(); N];
         for i in 0..N {
             for j in 0..N-i {
-                seq[i + j] = seq[i + j] + (self.seq[i] * other.seq[j]);
+                seq[i + j] += self.seq[i] * other.seq[j];
             }
         }
-        Self {
+        FixedSeq::<T, N> {
             seq: seq,
             cnt: std::cmp::min(self.cnt, other.cnt)
         }
     }
 }
 
-impl<T: Field + Copy, const N: usize> Div for FixedSeq<T, N> {
-    type Output = Self;
+forward_binop_impl! { impl Mul, mul for FixedSeq<T, N> where T: Field + std::marker::Copy, const N: usize }
+
+impl<'a, T: Field + Copy, const N: usize> MulAssign<&'a FixedSeq<T, N>> for FixedSeq<T, N> {
+    #[inline]
+    fn mul_assign(&mut self, other: &'a FixedSeq<T, N>) {
+        *self = &*self * other;
+    }
+}
+
+forward_assign_impl! { impl MulAssign, mul_assign for FixedSeq<T, N> where T: Field + std::marker::Copy, const N: usize }
+
+impl<'a, 'b, T: Field + Copy, const N: usize> Div<&'a FixedSeq<T, N>> for &'b FixedSeq<T, N> {
+    type Output = FixedSeq<T, N>;
 
     #[inline]
-    fn div(self, other: Self) -> Self {
-        let mut seq: [T; N] = self.seq;
-        for i in 0..N {
-            seq[i] = seq[i] / other.seq[0];
-            for j in (i+1)..N {
-                seq[j] = seq[j] - seq[i] * other.seq[j - i];
-            }
-        }
-        Self {
-            seq: seq,
-            cnt: std::cmp::min(self.cnt, other.cnt)
-        }
+    fn div(self, other: &'a FixedSeq<T, N>) -> FixedSeq<T, N> {
+        let mut res = *self;
+        res /= other;
+        res
     }
 }
+
+forward_binop_impl! { impl Div, div for FixedSeq<T, N> where T: Field + std::marker::Copy, const N: usize }
+
+impl<'a, T: Field + Copy, const N: usize> DivAssign<&'a FixedSeq<T, N>> for FixedSeq<T, N> {
+    #[inline]
+    fn div_assign(&mut self, other: &'a FixedSeq<T, N>) {
+        for i in 0..N {
+            self.seq[i] /= other.seq[0];
+            for j in (i+1)..N {
+                self.seq[j] -= self.seq[i] * other.seq[j - i];
+            }
+        }
+        self.cnt = std::cmp::min(self.cnt, other.cnt);
+    }
+}
+
+forward_assign_impl! { impl DivAssign, div_assign for FixedSeq<T, N> where T: Field + std::marker::Copy, const N: usize }
 
 impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
     type Coeff = T;
 
     #[inline]
     fn promote(x: T) -> Self {
-        let mut res: Self = Default::default();
+        let mut res = Self::zero();
         res.seq[0] = x;
         res
     }
@@ -152,14 +219,14 @@ impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
 
     #[inline]
     fn identity() -> Self {
-        let mut res: Self = Default::default();
-        res.seq[1] = T::from(1);
+        let mut res = Self::zero();
+        res.seq[1] = T::one();
         res
     }
 
     #[inline]
     fn derive(&self) -> Self {
-        let mut seq: [T; N] = [Default::default(); N];
+        let mut seq: [T; N] = [T::zero(); N];
         for i in 1..N {
             seq[i - 1] = self.seq[i] * T::from(i as u32);
         }
@@ -171,13 +238,13 @@ impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
 
     #[inline]
     fn integrate(&self) -> Self {
-        let mut seq: [T; N] = [Default::default(); N];
+        let mut seq: [T; N] = [T::zero(); N];
         for i in 1..N {
             seq[i] = self.seq[i - 1] / T::from(i as u32);
         }
         Self {
             seq: seq,
-            cnt: std::cmp::min(N as u8, self.cnt + 1)
+            cnt: std::cmp::min(N, self.cnt + 1)
         }
     }
 
@@ -195,7 +262,7 @@ impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
     #[inline]
     fn inverse(&self) -> Self {
         assert_eq!(self.seq[0], T::from(0));
-        let mut r: Self = Default::default();
+        let mut r = Self::zero();
         let comp = self.clone().lshift();
         r.cnt = self.cnt;
         for _i in 0..self.cnt {
@@ -206,7 +273,7 @@ impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
 
     #[inline]
     fn hadamard(&self, other: &Self) -> Self {
-        let mut seq: [T; N] = [Default::default(); N];
+        let mut seq: [T; N] = [T::zero(); N];
         for (i, x) in seq.iter_mut().enumerate() {
             *x = self.seq[i] * other.seq[i]
         }
@@ -231,16 +298,16 @@ impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
         r
     }
 
-    //#[inline]
-    //fn ratpow(self, p: i64, q: i64) -> Self {
-    //    unimplemented!()
-    //}
+    #[inline]
+    fn ratpow(self, _p: i64, _q: i64) -> Self {
+        unimplemented!()
+    }
 
     #[inline]
     fn lshift(&self) -> Self {
-        let mut seq: [T; N] = [Default::default(); N];
+        let mut seq: [T; N] = [T::zero(); N];
         for (i, x) in seq.iter_mut().enumerate() {
-            *x = if i + 1 == N { Default::default() } else { self.seq[i+1] };
+            *x = if i + 1 == N { T::zero() } else { self.seq[i+1] };
         }
         Self {
             seq: seq,
@@ -250,13 +317,13 @@ impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
 
     #[inline]
     fn rshift(&self) -> Self {
-        let mut seq: [T; N] = [Default::default(); N];
+        let mut seq: [T; N] = [T::zero(); N];
         for (i, x) in seq.iter_mut().enumerate() {
-            *x = if i == 0 { Default::default() } else { self.seq[i-1] };
+            *x = if i == 0 { T::zero() } else { self.seq[i-1] };
         }
         Self {
             seq: seq,
-            cnt: std::cmp::min(N as u8, self.cnt + 1)
+            cnt: std::cmp::min(N, self.cnt + 1)
         }
     }
 }
@@ -265,17 +332,17 @@ impl<T: Field + Copy, const N: usize> FixedSeq<T, N> {
     fn new(arr: [T; N]) -> Self {
         Self {
             seq: arr,
-            cnt: N as u8
+            cnt: N
         }
     }
     fn new_u32(arr: [u32; N]) -> Self {
-        let mut seq: [T; N] = [Default::default(); N];
+        let mut seq: [T; N] = [T::zero(); N];
         for (i, x) in seq.iter_mut().enumerate() {
             *x = T::from(arr[i]);
         }
         Self {
             seq: seq,
-            cnt: N as u8
+            cnt: N
         }
     }
     #[inline]

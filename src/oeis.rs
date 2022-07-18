@@ -6,11 +6,21 @@ use rayon::prelude::*;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering::SeqCst;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct ShortSeqDB<T: Field + Copy> {
     a_to_index: FastIntHashTable,
     anum: Vec<u32>,
     seqs: Vec<ShortSeq<T>>
+}
+
+impl<T: Field + Copy> Default for ShortSeqDB<T> {
+    fn default() -> ShortSeqDB<T> {
+        ShortSeqDB::<T> {
+            a_to_index: Default::default(),
+            anum: vec![],
+            seqs: vec![]
+        }
+    }
 }
 
 impl<T: Field + std::str::FromStr + Ord + Copy + std::marker::Sync> ShortSeqDB<T> {
@@ -34,7 +44,7 @@ impl<T: Field + std::str::FromStr + Ord + Copy + std::marker::Sync> ShortSeqDB<T
             if line.starts_with('#') {
                 continue;
             }
-            let mut vals = [Default::default(); 16];
+            let mut vals = [T::zero(); 16];
             let mut ind = 0;
             let mut iter = line.split(",");
             // Line starts with "A". Unwrap is OK since A-numbers do not overflow 32 bits
@@ -88,10 +98,10 @@ impl<T: Field + std::str::FromStr + Ord + Copy + std::marker::Sync> ShortSeqDB<T
             let rshft = self.seqs[i].rshift();
             let minus = -self.seqs[i];
             let mut cand1 = vec![deriv, integ, lshft, rshft, minus];
-            if self.seqs[i].seq[0] == T::from(0) {
+            if self.seqs[i].seq[0].is_zero() {
                 cand1.push(self.seqs[i].inverse());
             }
-            if self.seqs[i].seq[0] == T::from(1) {
+            if self.seqs[i].seq[0].is_one() {
                 cand1.push(self.seqs[i].sqrt());
             }
             for seq in cand1 {
@@ -112,12 +122,12 @@ impl<T: Field + std::str::FromStr + Ord + Copy + std::marker::Sync> ShortSeqDB<T
                 let diff2 = self.seqs[j] - self.seqs[i];
                 let mul = self.seqs[i] * self.seqs[j];
                 let mut cand2 = vec![sum, diff1, diff2, mul];
-                if self.seqs[i].seq[0] == T::from(0) {
+                if self.seqs[i].seq[0].is_zero() {
                     cand2.push(self.seqs[j].compose(&self.seqs[i]));
                 } else {
                     cand2.push(self.seqs[j] / self.seqs[i]);
                 }
-                if self.seqs[j].seq[0] == T::from(0) {
+                if self.seqs[j].seq[0].is_zero() {
                     cand2.push(self.seqs[i].compose(&self.seqs[j]));
                 } else {
                     cand2.push(self.seqs[i] / self.seqs[j]);

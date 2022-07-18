@@ -1,4 +1,8 @@
 #![feature(bigint_helper_methods)]
+
+#[macro_use]
+mod macros;
+
 mod hashing;
 mod matrix;
 mod fixedseq;
