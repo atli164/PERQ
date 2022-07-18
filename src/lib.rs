@@ -2,7 +2,7 @@
 mod hashing;
 mod matrix;
 mod fixedseq;
-// mod series;
+mod series;
 mod coeff;
 mod mathtypes;
 // mod exprtree;
