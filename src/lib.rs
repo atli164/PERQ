@@ -14,4 +14,5 @@ mod interpolate;
 pub mod oeis;
 pub use mathtypes::{Ring, Field, PowerSeries};
 pub use coeff::{ModIntP32, MersP31, MersP61};
-pub use fixedseq::{ShortSeq};
+pub use fixedseq::ShortSeq;
+pub use series::Series;

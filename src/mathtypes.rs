@@ -12,7 +12,7 @@ pub trait One {
     fn is_one(&self) -> bool;
 }
 
-trait GroupOps<Rhs, Output>:
+pub trait GroupOps<Rhs, Output>:
     Add<Rhs, Output = Output> + 
     Sub<Rhs, Output = Output> +
     Neg<Output = Output> {}
@@ -22,7 +22,7 @@ impl<T, Rhs, Output> GroupOps<Rhs, Output> for T where T:
     Sub<Rhs, Output = Output> +
     Neg<Output = Output> {}
 
-trait GroupAssign<Rhs>:
+pub trait GroupAssign<Rhs>:
     AddAssign<Rhs> +
     SubAssign<Rhs> {}
 
@@ -42,10 +42,12 @@ impl<T> Group for T where T: PartialEq + Eq + Zero + Clone + Debug +
     GroupAssign<Self> + 
     for<'r> GroupAssign<&'r Self> {}
 
-trait RingOps<Rhs, Output>: Mul<Rhs, Output = Output> {}
+pub trait RingOps<Rhs, Output>: Mul<Rhs, Output = Output> {}
+
 impl<T, Rhs, Output> RingOps<Rhs, Output> for T where T: Mul<Rhs, Output = Output> {}
 
-trait RingAssign<Rhs>: MulAssign<Rhs> {}
+pub trait RingAssign<Rhs>: MulAssign<Rhs> {}
+
 impl<T, Rhs> RingAssign<Rhs> for T where T: MulAssign<Rhs> {}
 
 pub trait Ring: Group + One + std::convert::From<u32> + 
@@ -60,10 +62,12 @@ impl<T> Ring for T where T: Group + One + std::convert::From<u32> +
     RingAssign<Self> +
     for<'r> RingAssign<&'r Self> {}
 
-trait FieldOps<Rhs, Output>: Div<Rhs, Output = Output> {}
+pub trait FieldOps<Rhs, Output>: Div<Rhs, Output = Output> {}
+
 impl<T, Rhs, Output> FieldOps<Rhs, Output> for T where T: Div<Rhs, Output = Output> {}
 
-trait FieldAssign<Rhs>: DivAssign<Rhs> {}
+pub trait FieldAssign<Rhs>: DivAssign<Rhs> {}
+
 impl<T, Rhs> FieldAssign<Rhs> for T where T: DivAssign<Rhs> {}
 
 pub trait Field: Ring +

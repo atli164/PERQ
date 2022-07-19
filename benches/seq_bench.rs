@@ -24,11 +24,11 @@ fn test_seq<T: Field + Copy + std::fmt::Debug>(mxn: usize) {
     let mut b = ShortSeq::<T>::promote(T::from(1u32));
     let mut sm = b * b;
     for _i in 0..mxn {
-        a = a + b.clone();
+        a += b;
         std::mem::swap(&mut a, &mut b);
-        sm = sm + b * b;
+        sm += b * b;
     }
-    a = a + b;
+    a += b;
     std::mem::swap(&mut a, &mut b);
     assert_eq!(sm, a * b);
 }

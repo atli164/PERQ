@@ -6,7 +6,7 @@ use std::iter::zip;
 #[derive(Debug, Clone, Copy)]
 pub struct FixedSeq<T: Field + Copy, const N: usize> {
     pub seq: [T; N],
-    pub cnt: usize
+    pub cnt: u8
 }
 
 pub type ShortSeq<T> = FixedSeq<T, 16>;
@@ -14,7 +14,7 @@ pub type ShortSeq<T> = FixedSeq<T, 16>;
 impl<T: Field + Copy, const N: usize> PartialEq for FixedSeq<T, N> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.seq[0..self.cnt] == other.seq[0..other.cnt] 
+        self.seq[0..self.cnt as usize] == other.seq[0..other.cnt as usize] 
     }
 }
 
@@ -30,7 +30,7 @@ impl<T: Field + Copy + Ord, const N: usize> PartialOrd for FixedSeq<T, N> {
 impl<T: Field + Copy + Ord, const N: usize> Ord for FixedSeq<T, N> {
     #[inline]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.seq[0..self.cnt].cmp(&other.seq[0..other.cnt])
+        self.seq[0..self.cnt as usize].cmp(&other.seq[0..other.cnt as usize])
     }
 }
 
@@ -42,7 +42,7 @@ impl<T: Field + Copy, const N: usize> One for FixedSeq<T, N> {
         seq[0] = T::one();
         Self {
             seq: seq,
-            cnt: N
+            cnt: N as u8
         }
     }
     #[inline]
@@ -62,7 +62,7 @@ impl<T: Field + Copy, const N: usize> Zero for FixedSeq<T, N> {
     fn zero() -> Self {
         Self {
             seq: [T::zero(); N],
-            cnt: N
+            cnt: N as u8
         }
     }
     #[inline]
@@ -81,30 +81,26 @@ impl<T: Field + Copy, const N: usize> From<u32> for FixedSeq<T, N> {
     }
 }
 
-impl<'a, T: Field + Copy, const N: usize> AddAssign<&'a FixedSeq<T, N>> for FixedSeq<T, N> {
+impl<T: Field + Copy, const N: usize> AddAssign<FixedSeq<T, N>> for FixedSeq<T, N> {
     #[inline]
-    fn add_assign(&mut self, other: &'a FixedSeq<T, N>) {
+    fn add_assign(&mut self, other: FixedSeq<T, N>) {
         zip(self.seq.iter_mut(), other.seq.iter()).for_each(|(x, y)| *x += y);
         self.cnt = std::cmp::min(self.cnt, other.cnt);
     }
 }
 
-forward_assign_impl! { impl AddAssign, add_assign for FixedSeq<T, N> where T: Field + std::marker::Copy, const N: usize }
-
-impl<'a, 'b, T: Field + Copy, const N: usize> Add<&'a FixedSeq<T, N>> for &'b FixedSeq<T, N> {
+impl<T: Field + Copy, const N: usize> Add<FixedSeq<T, N>> for FixedSeq<T, N> {
     type Output = FixedSeq<T, N>;
 
     #[inline]
-    fn add(self, other: &'a FixedSeq<T, N>) -> FixedSeq<T, N> {
-        let mut res = *self;
+    fn add(self, other: FixedSeq<T, N>) -> FixedSeq<T, N> {
+        let mut res = self;
         res += other;
         res
     }
 }
 
-forward_binop_impl! { impl Add, add for FixedSeq<T, N> where T: Field + std::marker::Copy, const N: usize }
-
-impl<'a, T: Field + Copy, const N: usize> Neg for &'a FixedSeq<T, N> {
+impl<T: Field + Copy, const N: usize> Neg for FixedSeq<T, N> {
     type Output = FixedSeq<T, N>;
 
     #[inline]
@@ -120,36 +116,30 @@ impl<'a, T: Field + Copy, const N: usize> Neg for &'a FixedSeq<T, N> {
     }
 }
 
-forward_unop_impl! { impl Neg, neg for FixedSeq<T, N> where T: Field + std::marker::Copy, const N: usize }
-
-impl<'a, T: Field + Copy, const N: usize> SubAssign<&'a FixedSeq<T, N>> for FixedSeq<T, N> {
+impl<T: Field + Copy, const N: usize> SubAssign<FixedSeq<T, N>> for FixedSeq<T, N> {
     #[inline]
-    fn sub_assign(&mut self, other: &'a FixedSeq<T, N>) {
+    fn sub_assign(&mut self, other: FixedSeq<T, N>) {
         zip(self.seq.iter_mut(), other.seq.iter()).for_each(|(x, y)| *x -= y);
         self.cnt = std::cmp::min(self.cnt, other.cnt);
     }
 }
 
-forward_assign_impl! { impl SubAssign, sub_assign for FixedSeq<T, N> where T: Field + std::marker::Copy, const N: usize }
-
-impl<'a, 'b, T: Field + Copy, const N: usize> Sub<&'a FixedSeq<T, N>> for &'b FixedSeq<T, N> {
+impl<T: Field + Copy, const N: usize> Sub<FixedSeq<T, N>> for FixedSeq<T, N> {
     type Output = FixedSeq<T, N>;
 
     #[inline]
-    fn sub(self, other: &'a FixedSeq<T, N>) -> FixedSeq<T, N> {
-        let mut res = *self;
+    fn sub(self, other: FixedSeq<T, N>) -> FixedSeq<T, N> {
+        let mut res = self;
         res += other;
         res
     }
 }
 
-forward_binop_impl! { impl Sub, sub for FixedSeq<T, N> where T: Field + std::marker::Copy, const N: usize }
-
-impl<'a, 'b, T: Field + Copy, const N: usize> Mul<&'a FixedSeq<T, N>> for &'b FixedSeq<T, N> {
+impl<T: Field + Copy, const N: usize> Mul<FixedSeq<T, N>> for FixedSeq<T, N> {
     type Output = FixedSeq<T, N>;
 
     #[inline]
-    fn mul(self, other: &'a FixedSeq<T, N>) -> FixedSeq<T, N> {
+    fn mul(self, other: FixedSeq<T, N>) -> FixedSeq<T, N> {
         let mut seq: [T; N] = [T::zero(); N];
         for i in 0..N {
             for j in 0..N-i {
@@ -163,33 +153,27 @@ impl<'a, 'b, T: Field + Copy, const N: usize> Mul<&'a FixedSeq<T, N>> for &'b Fi
     }
 }
 
-forward_binop_impl! { impl Mul, mul for FixedSeq<T, N> where T: Field + std::marker::Copy, const N: usize }
-
-impl<'a, T: Field + Copy, const N: usize> MulAssign<&'a FixedSeq<T, N>> for FixedSeq<T, N> {
+impl<T: Field + Copy, const N: usize> MulAssign<FixedSeq<T, N>> for FixedSeq<T, N> {
     #[inline]
-    fn mul_assign(&mut self, other: &'a FixedSeq<T, N>) {
+    fn mul_assign(&mut self, other: FixedSeq<T, N>) {
         *self = &*self * other;
     }
 }
 
-forward_assign_impl! { impl MulAssign, mul_assign for FixedSeq<T, N> where T: Field + std::marker::Copy, const N: usize }
-
-impl<'a, 'b, T: Field + Copy, const N: usize> Div<&'a FixedSeq<T, N>> for &'b FixedSeq<T, N> {
+impl<T: Field + Copy, const N: usize> Div<FixedSeq<T, N>> for FixedSeq<T, N> {
     type Output = FixedSeq<T, N>;
 
     #[inline]
-    fn div(self, other: &'a FixedSeq<T, N>) -> FixedSeq<T, N> {
-        let mut res = *self;
+    fn div(self, other: FixedSeq<T, N>) -> FixedSeq<T, N> {
+        let mut res = self;
         res /= other;
         res
     }
 }
 
-forward_binop_impl! { impl Div, div for FixedSeq<T, N> where T: Field + std::marker::Copy, const N: usize }
-
-impl<'a, T: Field + Copy, const N: usize> DivAssign<&'a FixedSeq<T, N>> for FixedSeq<T, N> {
+impl<T: Field + Copy, const N: usize> DivAssign<FixedSeq<T, N>> for FixedSeq<T, N> {
     #[inline]
-    fn div_assign(&mut self, other: &'a FixedSeq<T, N>) {
+    fn div_assign(&mut self, other: FixedSeq<T, N>) {
         for i in 0..N {
             self.seq[i] /= other.seq[0];
             for j in (i+1)..N {
@@ -199,8 +183,6 @@ impl<'a, T: Field + Copy, const N: usize> DivAssign<&'a FixedSeq<T, N>> for Fixe
         self.cnt = std::cmp::min(self.cnt, other.cnt);
     }
 }
-
-forward_assign_impl! { impl DivAssign, div_assign for FixedSeq<T, N> where T: Field + std::marker::Copy, const N: usize }
 
 impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
     type Coeff = T;
@@ -244,7 +226,7 @@ impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
         }
         Self {
             seq: seq,
-            cnt: std::cmp::min(N, self.cnt + 1)
+            cnt: std::cmp::min(N as u8, self.cnt + 1)
         }
     }
 
@@ -323,16 +305,18 @@ impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
         }
         Self {
             seq: seq,
-            cnt: std::cmp::min(N, self.cnt + 1)
+            cnt: std::cmp::min(N as u8, self.cnt + 1)
         }
     }
 }
+
+forward_into_ref_field! { impl Field for FixedSeq<T, N> where T: Field + std::marker::Copy, const N: usize }
 
 impl<T: Field + Copy, const N: usize> FixedSeq<T, N> {
     fn new(arr: [T; N]) -> Self {
         Self {
             seq: arr,
-            cnt: N
+            cnt: N as u8
         }
     }
     fn new_u32(arr: [u32; N]) -> Self {
@@ -342,7 +326,7 @@ impl<T: Field + Copy, const N: usize> FixedSeq<T, N> {
         }
         Self {
             seq: seq,
-            cnt: N
+            cnt: N as u8
         }
     }
     #[inline]
@@ -396,7 +380,7 @@ mod tests {
         let geom = ShortSeq::<ModIntP32>::new_u32([1; 16]);
         let nonzgeom = ShortSeq::<ModIntP32>::new_u32([0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
         let pow2 = ShortSeq::<ModIntP32>::new_u32([1, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384]);
-        assert_eq!(geom.compose(nonzgeom), pow2);
+        assert_eq!(geom.compose(&nonzgeom), pow2);
         let mut expseq: [ModIntP32; 16] = [ModIntP32::from(1); 16];
         for i in 1..16 {
             expseq[i] = ModIntP32::from(i as u32) * expseq[i - 1];
@@ -406,7 +390,7 @@ mod tests {
         }
         let a262 = ShortSeq::<ModIntP32>::new_u32([1, 1, 3, 13, 73, 501, 4051, 37633, 394353, 4596553, 58941091, 824073141, (12470162233u64 % 65521u64) as u32, (202976401213u64 % 65521u64) as u32, (3535017524403u64 % 65521u64) as u32, (65573803186921u64 % 65521u64) as u32]);
         let exp = ShortSeq::<ModIntP32>::new(expseq);
-        assert_eq!(exp.compose(nonzgeom), a262.hadamard(exp));
+        assert_eq!(exp.compose(&nonzgeom), a262.hadamard(&exp));
     }
 
     #[test]
@@ -426,7 +410,7 @@ mod tests {
             expseq[i] = ModIntP32::from(1) / expseq[i];
         }
         let exp = ShortSeq::<ModIntP32>::new(expseq);
-        assert_eq!(atan.inverse(), tang.hadamard(exp));
+        assert_eq!(atan.inverse(), tang.hadamard(&exp));
     }
 
     #[test]

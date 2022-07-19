@@ -62,16 +62,12 @@ impl<'a, 'b> Add<&'a Series> for &'b Series {
     }
 }
 
-forward_binop_impl! { impl Add, add for Series }
-
 impl<'a> AddAssign<&'a Series> for Series {
     #[inline]
     fn add_assign(&mut self, other: &'a Series) {
         zip(self.seq.iter_mut(), other.seq.iter()).for_each(|(x, y)| *x += y);
     }
 }
-
-forward_assign_impl! { impl AddAssign, add_assign for Series }
 
 impl<'a> Neg for &'a Series {
     type Output = Series;
@@ -84,8 +80,6 @@ impl<'a> Neg for &'a Series {
     }
 }
 
-forward_unop_impl! { impl Neg, neg for Series }
-
 impl<'a, 'b> Sub<&'a Series> for &'b Series {
     type Output = Series;
 
@@ -97,16 +91,12 @@ impl<'a, 'b> Sub<&'a Series> for &'b Series {
     }
 }
 
-forward_binop_impl! { impl Sub, sub for Series }
-
 impl<'a> SubAssign<&'a Series> for Series {
     #[inline]
     fn sub_assign(&mut self, other: &'a Series) {
         zip(self.seq.iter_mut(), other.seq.iter()).for_each(|(x, y)| *x -= y);
     }
 }
-
-forward_assign_impl! { impl SubAssign, sub_assign for Series }
 
 impl<'a, 'b> Mul<&'a Series> for &'b Series {
     type Output = Series;
@@ -127,16 +117,12 @@ impl<'a, 'b> Mul<&'a Series> for &'b Series {
     }
 }
 
-forward_binop_impl! { impl Mul, mul for Series }
-
 impl<'a> MulAssign<&'a Series> for Series {
     #[inline]
     fn mul_assign(&mut self, other: &'a Series) {
         *self = &*self * other;
     }
 }
-
-forward_assign_impl! { impl MulAssign, mul_assign for Series }
 
 impl<'a> DivAssign<&'a Series> for Series {
     #[inline]
@@ -152,8 +138,6 @@ impl<'a> DivAssign<&'a Series> for Series {
     }
 }
 
-forward_assign_impl! { impl DivAssign, div_assign for Series }
-
 impl<'a, 'b> Div<&'a Series> for &'b Series {
     type Output = Series;
 
@@ -165,7 +149,7 @@ impl<'a, 'b> Div<&'a Series> for &'b Series {
     }
 }
 
-forward_binop_impl! { impl Div, div for Series }
+forward_from_ref_field! { impl Field for Series }
 
 impl PowerSeries for Series {
     type Coeff = Rational;

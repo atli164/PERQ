@@ -28,32 +28,36 @@ impl ModIntP32 {
 }
 
 impl Zero for ModIntP32 {
+    #[inline]
     fn zero() -> ModIntP32 {
         ModIntP32 {
             x: 0
         }
     }
+    #[inline]
     fn is_zero(&self) -> bool {
         self.x == 0
     }
 }
 
 impl One for ModIntP32 {
+    #[inline]
     fn one() -> ModIntP32 {
         ModIntP32 {
             x: 1
         }
     }
+    #[inline]
     fn is_one(&self) -> bool {
         self.x == 1
     }
 }
 
-impl<'a, 'b> Add<&'a ModIntP32> for &'b ModIntP32 {
+impl Add<ModIntP32> for ModIntP32 {
     type Output = ModIntP32;
 
     #[inline]
-    fn add(self, other: &'a ModIntP32) -> ModIntP32 {
+    fn add(self, other: ModIntP32) -> ModIntP32 {
         let res = self.x + other.x;
         ModIntP32 {
             x: if res >= ModIntP32::MOD { res - ModIntP32::MOD } else { res }
@@ -61,11 +65,9 @@ impl<'a, 'b> Add<&'a ModIntP32> for &'b ModIntP32 {
     }
 }
 
-forward_binop_impl! { impl Add, add for ModIntP32 }
-
-impl<'a> AddAssign<&'a ModIntP32> for ModIntP32 {
+impl AddAssign<ModIntP32> for ModIntP32 {
     #[inline]
-    fn add_assign(&mut self, other: &'a ModIntP32) {
+    fn add_assign(&mut self, other: ModIntP32) {
         self.x += other.x;
         if self.x >= ModIntP32::MOD {
             self.x -= ModIntP32::MOD;
@@ -73,13 +75,11 @@ impl<'a> AddAssign<&'a ModIntP32> for ModIntP32 {
     }
 }
 
-forward_assign_impl! { impl AddAssign, add_assign for ModIntP32 }
-
-impl<'a, 'b> Sub<&'a ModIntP32> for &'b ModIntP32 {
+impl Sub<ModIntP32> for ModIntP32 {
     type Output = ModIntP32;
 
     #[inline]
-    fn sub(self, other: &'a ModIntP32) -> ModIntP32 {
+    fn sub(self, other: ModIntP32) -> ModIntP32 {
         let res = ModIntP32::MOD + self.x - other.x;
         ModIntP32 {
             x: if res >= ModIntP32::MOD { res - ModIntP32::MOD } else { res }
@@ -87,11 +87,9 @@ impl<'a, 'b> Sub<&'a ModIntP32> for &'b ModIntP32 {
     }
 }
 
-forward_binop_impl! { impl Sub, sub for ModIntP32 }
-
-impl<'a> SubAssign<&'a ModIntP32> for ModIntP32 {
+impl SubAssign<ModIntP32> for ModIntP32 {
     #[inline]
-    fn sub_assign(&mut self, other: &'a ModIntP32) {
+    fn sub_assign(&mut self, other: ModIntP32) {
         self.x += ModIntP32::MOD - other.x;
         if self.x >= ModIntP32::MOD {
             self.x -= ModIntP32::MOD;
@@ -99,9 +97,7 @@ impl<'a> SubAssign<&'a ModIntP32> for ModIntP32 {
     }
 }
 
-forward_assign_impl! { impl SubAssign, sub_assign for ModIntP32 }
-
-impl<'a> Neg for &'a ModIntP32 {
+impl Neg for ModIntP32 {
     type Output = ModIntP32;
 
     #[inline]
@@ -112,50 +108,40 @@ impl<'a> Neg for &'a ModIntP32 {
     }
 }
 
-forward_unop_impl! { impl Neg, neg for ModIntP32 }
-
-impl<'a, 'b> Mul<&'a ModIntP32> for &'b ModIntP32 {
+impl Mul<ModIntP32> for ModIntP32 {
     type Output = ModIntP32;
 
     #[inline]
-    fn mul(self, other: &'a ModIntP32) -> ModIntP32 {
+    fn mul(self, other: ModIntP32) -> ModIntP32 {
         ModIntP32 {
             x: (self.x * other.x) % ModIntP32::MOD
         }
     }
 }
 
-forward_binop_impl! { impl Mul, mul for ModIntP32 }
-
-impl<'a> MulAssign<&'a ModIntP32> for ModIntP32 {
+impl MulAssign<ModIntP32> for ModIntP32 {
     #[inline]
-    fn mul_assign(&mut self, other: &'a ModIntP32) {
+    fn mul_assign(&mut self, other: ModIntP32) {
         self.x *= other.x;
         self.x %= ModIntP32::MOD;
     }
 }
 
-forward_assign_impl! { impl MulAssign, mul_assign for ModIntP32 }
-
-impl<'a, 'b> Div<&'a ModIntP32> for &'b ModIntP32 {
+impl Div<ModIntP32> for ModIntP32 {
     type Output = ModIntP32;
 
     #[inline]
-    fn div(self, other: &'a ModIntP32) -> ModIntP32 {
+    fn div(self, other: ModIntP32) -> ModIntP32 {
         self * other.inv()
     }
 }
 
-forward_binop_impl! { impl Div, div for ModIntP32 }
-
-impl<'a> DivAssign<&'a ModIntP32> for ModIntP32 {
+impl DivAssign<ModIntP32> for ModIntP32 {
     #[inline]
-    fn div_assign(&mut self, other: &'a ModIntP32) {
+    fn div_assign(&mut self, other: ModIntP32) {
         *self *= other.inv();
     }
 }
-
-forward_assign_impl! { impl DivAssign, div_assign for ModIntP32 }
 
 impl From<u32> for ModIntP32 {
     #[inline]
@@ -193,12 +179,20 @@ impl std::str::FromStr for ModIntP32 {
     }
 }
 
+forward_into_ref_field! { impl Field for ModIntP32 }
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct MersP31 {
     x: u32
 }
 impl MersP31 {
     const MOD: u32 = 2147483647u32;
+    #[inline]
+    fn reduce(&mut self) {
+        if self.x >= MersP31::MOD {
+            self.x -= MersP31::MOD;
+        }
+    }
     #[inline]
     fn reduced(self) -> MersP31 {
         // According to Godbolt this should emit a CMOV
@@ -222,43 +216,109 @@ impl MersP31 {
         Self { x: if t.0 >= MersP31::MOD { t.0.wrapping_add(MersP31::MOD) } else { t.0 } }
     }
 }
-impl Add for MersP31 {
-    type Output = Self;
+
+impl Zero for MersP31 {
     #[inline]
-    fn add(self, other: Self) -> Self {
-        (Self { x: self.x + other.x }).reduced()
+    fn zero() -> MersP31 {
+        MersP31 {
+            x: 0
+        }
+    }
+    #[inline]
+    fn is_zero(&self) -> bool {
+        self.x == 0
     }
 }
-impl Sub for MersP31 {
-    type Output = Self;
+
+impl One for MersP31 {
     #[inline]
-    fn sub(self, other: Self) -> Self {
+    fn one() -> MersP31 {
+        MersP31 {
+            x: 1
+        }
+    }
+    #[inline]
+    fn is_one(&self) -> bool {
+        self.x == 1
+    }
+}
+
+impl Add<MersP31> for MersP31 {
+    type Output = MersP31;
+
+    #[inline]
+    fn add(self, other: MersP31) -> MersP31 {
+        (MersP31 { x: self.x + other.x }).reduced()
+    }
+}
+
+impl AddAssign<MersP31> for MersP31 {
+    #[inline]
+    fn add_assign(&mut self, other: MersP31) {
+        self.x += other.x;
+        self.reduce();
+    }
+}
+
+impl Sub<MersP31> for MersP31 {
+    type Output = MersP31;
+
+    #[inline]
+    fn sub(self, other: MersP31) -> MersP31 {
         self + other.neg()
     }
 }
-impl Neg for MersP31 {
-    type Output = Self;
+
+impl SubAssign<MersP31> for MersP31 {
     #[inline]
-    fn neg(self) -> Self {
-        (Self { x: MersP31::MOD - self.x }).reduced()
+    fn sub_assign(&mut self, other: MersP31) {
+        *self += other.neg();
     }
 }
-impl Mul for MersP31 {
-    type Output = Self;
+
+impl Neg for MersP31 {
+    type Output = MersP31;
+
     #[inline]
-    fn mul(self, other: Self) -> Self {
+    fn neg(self) -> MersP31 {
+        (MersP31 { x: MersP31::MOD - self.x }).reduced()
+    }
+}
+
+impl Mul<MersP31> for MersP31 {
+    type Output = MersP31;
+
+    #[inline]
+    fn mul(self, other: MersP31) -> MersP31 {
         let (r, k) = self.x.widening_mul(other.x);
         let res = (r & MersP31::MOD) + (r >> 31) + (k << 1);
-        (Self { x: res }).reduced()
+        (MersP31 { x: res }).reduced()
     }
 }
-impl Div for MersP31 {
-    type Output = Self;
+
+impl MulAssign<MersP31> for MersP31 {
     #[inline]
-    fn div(self, other: Self) -> Self {
+    fn mul_assign(&mut self, other: MersP31) {
+        *self = &*self * other;
+    }
+}
+
+impl Div<MersP31> for MersP31 {
+    type Output = MersP31;
+
+    #[inline]
+    fn div(self, other: MersP31) -> MersP31 {
         self * other.inv()
     }
 }
+
+impl DivAssign<MersP31> for MersP31 {
+    #[inline]
+    fn div_assign(&mut self, other: MersP31) {
+        *self *= other.inv();
+    }
+}
+
 impl From<u32> for MersP31 {
     #[inline]
     fn from(x: u32) -> MersP31 {
@@ -267,12 +327,20 @@ impl From<u32> for MersP31 {
     }
 }
 
+forward_into_ref_field! { impl Field for MersP31 }
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct MersP61 {
     x: u64
 }
 impl MersP61 {
     const MOD: u64 = 2305843009213693951u64;
+    #[inline]
+    fn reduce(&mut self) {
+        if self.x >= MersP61::MOD {
+            self.x -= MersP61::MOD;
+        }
+    }
     #[inline]
     fn reduced(self) -> MersP61 {
         Self {
@@ -295,43 +363,109 @@ impl MersP61 {
         Self { x: if t.0 >= MersP61::MOD { t.0.wrapping_add(MersP61::MOD) } else { t.0 } }
     }
 }
-impl Add for MersP61 {
-    type Output = Self;
+
+impl Zero for MersP61 {
     #[inline]
-    fn add(self, other: Self) -> Self {
-        (Self { x: self.x + other.x }).reduced()
+    fn zero() -> MersP61 {
+        MersP61 {
+            x: 0
+        }
+    }
+    #[inline]
+    fn is_zero(&self) -> bool {
+        self.x == 0
     }
 }
-impl Sub for MersP61 {
-    type Output = Self;
+
+impl One for MersP61 {
     #[inline]
-    fn sub(self, other: Self) -> Self {
+    fn one() -> MersP61 {
+        MersP61 {
+            x: 1
+        }
+    }
+    #[inline]
+    fn is_one(&self) -> bool {
+        self.x == 1
+    }
+}
+
+impl Add<MersP61> for MersP61 {
+    type Output = MersP61;
+
+    #[inline]
+    fn add(self, other: MersP61) -> MersP61 {
+        (MersP61 { x: self.x + other.x }).reduced()
+    }
+}
+
+impl AddAssign<MersP61> for MersP61 {
+    #[inline]
+    fn add_assign(&mut self, other: MersP61) {
+        self.x += other.x;
+        self.reduce();
+    }
+}
+
+impl Sub<MersP61> for MersP61 {
+    type Output = MersP61;
+
+    #[inline]
+    fn sub(self, other: MersP61) -> MersP61 {
         self + other.neg()
     }
 }
-impl Neg for MersP61 {
-    type Output = Self;
+
+impl SubAssign<MersP61> for MersP61 {
     #[inline]
-    fn neg(self) -> Self {
-        (Self { x: MersP61::MOD - self.x }).reduced()
+    fn sub_assign(&mut self, other: MersP61) {
+        *self += other.neg();
     }
 }
-impl Mul for MersP61 {
-    type Output = Self;
+
+impl Neg for MersP61 {
+    type Output = MersP61;
+
     #[inline]
-    fn mul(self, other: Self) -> Self {
+    fn neg(self) -> MersP61 {
+        (MersP61 { x: MersP61::MOD - self.x }).reduced()
+    }
+}
+
+impl Mul<MersP61> for MersP61 {
+    type Output = MersP61;
+
+    #[inline]
+    fn mul(self, other: MersP61) -> MersP61 {
         let (r, k) = self.x.widening_mul(other.x);
         let res = (r & MersP61::MOD) + (r >> 61) + (k << 3);
-        (Self { x: res }).reduced()
+        (MersP61 { x: res }).reduced()
     }
 }
-impl Div for MersP61 {
-    type Output = Self;
+
+impl MulAssign<MersP61> for MersP61 {
     #[inline]
-    fn div(self, other: Self) -> Self {
+    fn mul_assign(&mut self, other: MersP61) {
+        *self = &*self * other;
+    }
+}
+
+impl Div<MersP61> for MersP61 {
+    type Output = MersP61;
+
+    #[inline]
+    fn div(self, other: MersP61) -> MersP61 {
         self * other.inv()
     }
 }
+
+impl DivAssign<MersP61> for MersP61 {
+    #[inline]
+    fn div_assign(&mut self, other: MersP61) {
+        *self *= other.inv();
+    }
+}
+
 impl From<u32> for MersP61 {
     #[inline]
     fn from(x: u32) -> MersP61 {
@@ -348,3 +482,5 @@ impl From<u64> for MersP61 {
         }
     }
 }
+
+forward_into_ref_field! { impl Field for MersP61 }
