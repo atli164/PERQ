@@ -112,7 +112,7 @@ impl<'a, 'b> Mul<&'a Series> for &'b Series {
             }
         }
         Series {
-            seq: seq
+            seq
         }
     }
 }
@@ -191,10 +191,10 @@ impl PowerSeries for Series {
     fn compose(&self, other: &Self) -> Self {
         assert_eq!(other.seq[0], Rational::from(0));
         if self.seq.len() == 1 { return self.clone(); }
-        let reccomp = self.lshift().compose(&other);
+        let reccomp = self.lshift().compose(other);
         let mut tail = (other.lshift() * reccomp).rshift();
         tail.seq[0] += &self.seq[0];
-        return tail;
+        tail
     }
 
     #[inline]
@@ -220,14 +220,14 @@ impl PowerSeries for Series {
     #[inline]
     fn sqrt(&self) -> Self {
         // for now, tonnelli-shanks later
-        assert!(self.seq[0] == Rational::from(1));
+        assert!(self.seq[0].is_one());
         let mut r = Self::promote(Rational::from(1));
         for _i in 0..self.seq.len() {
             let q = (self.clone() - r.clone() * r.clone()).tail_term() / (Self::promote(Rational::from(2)) * r.clone()).tail_term();
             if q == Self::promote(Rational::from(0)) {
                 return r;
             }
-            r = r + q;
+            r += q;
         }
         r
     }
@@ -268,16 +268,12 @@ impl Series {
         let mut found = false;
         Self {
             seq: self.seq.iter().map(|x| 
-                if found { 
+                if found || x.cmp0() == std::cmp::Ordering::Equal { 
                     x.clone()
                 } else { 
-                    if x.cmp0() == std::cmp::Ordering::Equal { 
-                        x.clone()
-                    } else { 
-                        found = true; 
-                        Rational::from(0) 
-                    } 
-                }
+                    found = true; 
+                    Rational::from(0) 
+                } 
             ).collect()
         }
     }

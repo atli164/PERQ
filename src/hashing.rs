@@ -9,7 +9,7 @@ struct HashCell {
 
 impl HashCell {
     fn has_value(&self) -> bool {
-        return self.dist >= 0;
+        self.dist >= 0
     }
 
     fn set_values(&mut self, d: i8, k: u32, v: u32) {
@@ -73,7 +73,7 @@ impl FastIntHashTable {
     fn hash(&self, x: u32) -> u32 {
         let val = (x >> 16) ^ x;
         let num = val.wrapping_mul(0x45d9f3b);
-        return num & self.mask;
+        num & self.mask
     }
 
     pub fn insert(&mut self, mut k: u32, mut v: u32) {
@@ -110,7 +110,7 @@ impl FastIntHashTable {
             }
             ind += 1; d += 1;
         }
-        return None;
+        None
     }
 }
 

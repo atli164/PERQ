@@ -13,7 +13,7 @@ use crate::matrix::Matrix;
 // Confidence level is calculated in terms of overfit degrees of freedom
 
 // berlekamp-massey algorithm
-pub fn find_c_recursive<T: Field + Copy>(seq: &Vec<T>, max_deg: usize) -> Option<Vec<T>> {
+pub fn find_c_recursive<T: Field + Copy>(seq: &[T], max_deg: usize) -> Option<Vec<T>> {
     let (mut m, mut l, mut b) = (1, 0, T::one());
     let (mut cp, mut bp, mut tmp, mut res) = (vec![T::one()], vec![T::one()], vec![], vec![]);
     for i in 0..seq.len() {
@@ -22,9 +22,9 @@ pub fn find_c_recursive<T: Field + Copy>(seq: &Vec<T>, max_deg: usize) -> Option
         }
         let mut d = seq[i];
         for j in 1..l+1 {
-            d = d + cp[j] * seq[i - j]; 
+            d += cp[j] * seq[i - j]; 
         }
-        if d == T::from(0u32) {
+        if d.is_zero() {
             m += 1;
             continue;
         }
@@ -36,7 +36,7 @@ pub fn find_c_recursive<T: Field + Copy>(seq: &Vec<T>, max_deg: usize) -> Option
         }
         let a = d / b;
         for j in m..cp.len() {
-            cp[j] = cp[j] - a * bp[j - m];
+            cp[j] -= a * bp[j - m];
         }
         m += 1;
         if sw {
@@ -45,13 +45,13 @@ pub fn find_c_recursive<T: Field + Copy>(seq: &Vec<T>, max_deg: usize) -> Option
             m = 1;
         }
     }
-    for i in 1..l+1 {
-        res.push(-cp[i]);
+    for &val in cp.iter().skip(1).take(l) {
+        res.push(-val);
     }
     Some(res)
 }
 
-pub fn find_hypergeometric<T: Field + Copy>(seq: &Vec<T>, max_deg: usize) -> Option<(Vec<T>, Vec<T>)> {
+pub fn find_hypergeometric<T: Field + Copy>(seq: &[T], max_deg: usize) -> Option<(Vec<T>, Vec<T>)> {
     // P(n)a(n+1) = Q(n)a(n)
     // Normalize by setting coefficient sum of P to 1
     let mat_sz = 2 * (max_deg + 1);
@@ -61,43 +61,43 @@ pub fn find_hypergeometric<T: Field + Copy>(seq: &Vec<T>, max_deg: usize) -> Opt
     let mut mat = Matrix::<T>::new(mat_sz, mat_sz);
     let mut targ = vec![];
     for i in 0..mat_sz-1 {
-        let mut jpow = T::from(1u32);
+        let mut jpow = T::one();
         for j in 0..max_deg+1 {
             mat[(i, 2 * j)] = seq[i] * jpow;
             mat[(i, 2 * j + 1)] = -seq[i + 1] * jpow;
-            jpow = jpow * T::from(i as u32);
+            jpow *= T::from(i as u32);
         }
-        targ.push(T::from(0u32));
+        targ.push(T::zero());
     }
     for j in 0..max_deg+1 {
-        mat[(mat_sz - 1, 2 * j + 1)] = T::from(1u32);
+        mat[(mat_sz - 1, 2 * j + 1)] = T::one();
     }
-    targ.push(T::from(1u32));
+    targ.push(T::one());
     let ret = mat.solve(&targ)?;
     let (mut p, mut q) = (vec![], vec![]);
-    for i in 0..mat_sz {
+    for (i, &val) in ret.iter().enumerate() {
         if i % 2 == 0 {
-            q.push(ret[i]);
+            q.push(val);
         } else {
-            p.push(ret[i]);
+            p.push(val);
         }
     }
-    while p.len() > 1 && p.last() == Some(&T::from(0u32)) {
+    while p.len() > 1 && p.last() == Some(&T::zero()) {
         p.pop();
     }
-    while q.len() > 1 && q.last() == Some(&T::from(0u32)) {
+    while q.len() > 1 && q.last() == Some(&T::zero()) {
         q.pop();
     }
     for i in 0..seq.len()-1 {
-        let mut psm = T::from(0u32);
+        let mut psm = T::zero();
         for j in (0..p.len()).rev() {
-            psm = psm * T::from(i as u32);
-            psm = psm + p[j];
+            psm *= T::from(i as u32);
+            psm += p[j];
         }
-        let mut qsm = T::from(0u32);
+        let mut qsm = T::zero();
         for j in (0..q.len()).rev() {
-            qsm = qsm * T::from(i as u32);
-            qsm = qsm + q[j];
+            qsm *= T::from(i as u32);
+            qsm += q[j];
         }
         if psm * seq[i + 1] != qsm * seq[i] {
             return None;
@@ -106,7 +106,7 @@ pub fn find_hypergeometric<T: Field + Copy>(seq: &Vec<T>, max_deg: usize) -> Opt
     Some((p, q))
 }
 
-pub fn find_p_recursive<T: Field + Copy>(seq: &Vec<T>, max_deg: usize, max_num: usize) -> Option<Vec<Vec<T>>> {
+pub fn find_p_recursive<T: Field + Copy>(seq: &[T], max_deg: usize, max_num: usize) -> Option<Vec<Vec<T>>> {
     // P_{r-1}(n)a(n+r-1) + ... + P_0(n)a(n) = 0
     // Normalize by setting coeff sum of P_{r-1} to 1
     let mat_sz = max_num * (max_deg + 1);
@@ -116,43 +116,43 @@ pub fn find_p_recursive<T: Field + Copy>(seq: &Vec<T>, max_deg: usize, max_num: 
     let mut mat = Matrix::<T>::new(mat_sz, mat_sz);
     let mut targ = vec![];
     for i in 0..mat_sz-1 {
-        let mut jpow = T::from(1u32);
+        let mut jpow = T::one();
         for j in 0..max_deg+1 {
             for k in 0..max_num {
                 mat[(i, max_num * j + k)] = seq[i + k] * jpow;
             }
-            jpow = jpow * T::from(i as u32);
+            jpow *= T::from(i as u32);
         }
-        targ.push(T::from(0u32));
+        targ.push(T::zero());
     }
     for j in 0..max_deg+1 {
-        mat[(mat_sz - 1, max_num * j + max_num - 1)] = T::from(1u32);
+        mat[(mat_sz - 1, max_num * j + max_num - 1)] = T::one();
     }
-    targ.push(T::from(1u32));
+    targ.push(T::one());
     let ret = mat.solve(&targ)?;
     let mut poly = vec![vec![]; max_num];
     for i in 0..mat_sz {
         poly[i % max_num].push(ret[i]);
     }
-    for i in 0..max_num {
-        while poly[i].len() > 1 && poly[i].last() == Some(&T::from(0u32)) {
-            poly[i].pop();
+    for p in poly.iter_mut() {
+        while p.len() > 1 && p.last() == Some(&T::zero()) {
+            p.pop();
         }
     }
     poly.reverse();
-    while poly.len() > 1 && poly.last() == Some(&vec![T::from(0u32)]) {
+    while poly.len() > 1 && poly.last() == Some(&vec![T::zero()]) {
         poly.pop();
     }
     poly.reverse();
     for i in 0..seq.len()-poly.len()+1 {
-        let mut sm = T::from(0u32);
+        let mut sm = T::zero();
         for r in 0..poly.len() {
-            let mut psm = T::from(0u32);
+            let mut psm = T::zero();
             for j in (0..poly[r].len()).rev() {
-                psm = psm * T::from(i as u32);
-                psm = psm + poly[r][j];
+                psm *= T::from(i as u32);
+                psm += poly[r][j];
             }
-            sm = sm + psm * seq[i + r];
+            sm += psm * seq[i + r];
         }
         if !sm.is_zero() {
             return None;
@@ -164,17 +164,18 @@ pub fn find_p_recursive<T: Field + Copy>(seq: &Vec<T>, max_deg: usize, max_num: 
 #[cfg(test)]
 mod tests {
     use crate::ModIntP32;
+    use crate::mathtypes::{One, Zero};
     use crate::interpolate::find_c_recursive;
     #[test]
     fn c_rec_test_1() {
         let mut fib = vec![];
-        fib.push(ModIntP32::from(0u32));
-        fib.push(ModIntP32::from(1u32));
+        fib.push(ModIntP32::zero());
+        fib.push(ModIntP32::one());
         for i in 2..10 {
             fib.push(fib[i - 1] + fib[i - 2]);
         }
         let res = find_c_recursive::<ModIntP32>(&fib, 4);
-        assert_eq!(res, Some(vec![ModIntP32::from(1u32), ModIntP32::from(1u32)]));
+        assert_eq!(res, Some(vec![ModIntP32::one(), ModIntP32::one()]));
     }
 
     #[test]
@@ -208,12 +209,12 @@ mod tests {
     use crate::interpolate::find_hypergeometric;
     #[test]
     fn hyper_test_1() {
-        let mut fac = vec![ModIntP32::from(1u32)];
+        let mut fac = vec![ModIntP32::one()];
         for i in 1..8 {
             fac.push(ModIntP32::from(i as u32) * fac[i - 1]);
         }
         let res = find_hypergeometric::<ModIntP32>(&fac, 2);
-        let expected = (vec![ModIntP32::from(1u32)], vec![ModIntP32::from(1u32), ModIntP32::from(1u32)]);
+        let expected = (vec![ModIntP32::one()], vec![ModIntP32::one(), ModIntP32::one()]);
         assert_eq!(res, Some(expected));
     }
     #[test]
@@ -229,18 +230,18 @@ mod tests {
             ModIntP32::from(429u32),
         ];
         let res = find_hypergeometric::<ModIntP32>(&cat, 2);
-        let third = ModIntP32::from(1u32) / ModIntP32::from(3u32);
+        let third = ModIntP32::one() / ModIntP32::from(3u32);
         let expected = (vec![third + third, third], vec![third + third, third + third + third + third]);
         assert_eq!(res, Some(expected));
     }
 
     #[test]
     fn hyper_test_3() {
-        let mut seq = vec![ModIntP32::from(1u32)];
+        let mut seq = vec![ModIntP32::one()];
         let two = ModIntP32::from(2u32);
         for i in 1..10 {
             let n = ModIntP32::from(i as u32);
-            seq.push(two * (two * n) * (two * n - ModIntP32::from(1u32)) * seq[i - 1]);
+            seq.push(two * (two * n) * (two * n - ModIntP32::one()) * seq[i - 1]);
         }
         let res = find_hypergeometric::<ModIntP32>(&seq, 2);
         let expected = (vec![ModIntP32::from(1u32)], vec![ModIntP32::from(4u32), ModIntP32::from(12u32), ModIntP32::from(8u32)]);

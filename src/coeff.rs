@@ -156,7 +156,7 @@ impl std::str::FromStr for ModIntP32 {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.len() == 0 {
+        if s.is_empty() {
             return Err(());
         }
         let mut res = ModIntP32::from(0u32);
@@ -166,9 +166,9 @@ impl std::str::FromStr for ModIntP32 {
                 neg = true;
                 continue;
             }
-            res = res * ModIntP32::from(10u32);
+            res *= ModIntP32::from(10u32);
             match c.to_digit(10) {
-                Some(x) => res = res + ModIntP32::from(x),
+                Some(x) => res += ModIntP32::from(x),
                 None => return Err(())
             }
         }
@@ -299,7 +299,7 @@ impl Mul<MersP31> for MersP31 {
 impl MulAssign<MersP31> for MersP31 {
     #[inline]
     fn mul_assign(&mut self, other: MersP31) {
-        *self = &*self * other;
+        *self = *self * other;
     }
 }
 
@@ -446,7 +446,7 @@ impl Mul<MersP61> for MersP61 {
 impl MulAssign<MersP61> for MersP61 {
     #[inline]
     fn mul_assign(&mut self, other: MersP61) {
-        *self = &*self * other;
+        *self = *self * other;
     }
 }
 

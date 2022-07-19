@@ -41,7 +41,7 @@ impl<T: Field + Copy, const N: usize> One for FixedSeq<T, N> {
         let mut seq = [T::zero(); N];
         seq[0] = T::one();
         Self {
-            seq: seq,
+            seq,
             cnt: N as u8
         }
     }
@@ -110,7 +110,7 @@ impl<T: Field + Copy, const N: usize> Neg for FixedSeq<T, N> {
             *x = -self.seq[i]
         }
         FixedSeq::<T, N> {
-            seq: seq,
+            seq,
             cnt: self.cnt
         }
     }
@@ -130,7 +130,7 @@ impl<T: Field + Copy, const N: usize> Sub<FixedSeq<T, N>> for FixedSeq<T, N> {
     #[inline]
     fn sub(self, other: FixedSeq<T, N>) -> FixedSeq<T, N> {
         let mut res = self;
-        res += other;
+        res -= other;
         res
     }
 }
@@ -147,7 +147,7 @@ impl<T: Field + Copy, const N: usize> Mul<FixedSeq<T, N>> for FixedSeq<T, N> {
             }
         }
         FixedSeq::<T, N> {
-            seq: seq,
+            seq,
             cnt: std::cmp::min(self.cnt, other.cnt)
         }
     }
@@ -156,7 +156,7 @@ impl<T: Field + Copy, const N: usize> Mul<FixedSeq<T, N>> for FixedSeq<T, N> {
 impl<T: Field + Copy, const N: usize> MulAssign<FixedSeq<T, N>> for FixedSeq<T, N> {
     #[inline]
     fn mul_assign(&mut self, other: FixedSeq<T, N>) {
-        *self = &*self * other;
+        *self = *self * other;
     }
 }
 
@@ -213,7 +213,7 @@ impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
             seq[i - 1] = self.seq[i] * T::from(i as u32);
         }
         Self {
-            seq: seq,
+            seq,
             cnt: self.cnt.saturating_sub(1)
         }
     }
@@ -221,36 +221,36 @@ impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
     #[inline]
     fn integrate(&self) -> Self {
         let mut seq: [T; N] = [T::zero(); N];
-        for i in 1..N {
-            seq[i] = self.seq[i - 1] / T::from(i as u32);
+        for (i, x) in seq.iter_mut().enumerate().skip(1) {
+            *x = self.seq[i - 1] / T::from(i as u32);
         }
         Self {
-            seq: seq,
+            seq,
             cnt: std::cmp::min(N as u8, self.cnt + 1)
         }
     }
 
     #[inline]
     fn compose(&self, other: &Self) -> Self {
-        assert_eq!(other.seq[0], T::from(0));
-        if self.cnt == 1 { return self.clone(); }
-        let reccomp = self.lshift().compose(&other);
+        assert!(other.seq[0].is_zero());
+        if self.cnt == 1 { return *self; }
+        let reccomp = self.lshift().compose(other);
         let mut tail = (other.lshift() * reccomp).rshift();
-        tail.seq[0] = tail.seq[0] + self.seq[0];
+        tail.seq[0] += self.seq[0];
         // cnt value?
-        return tail;
+        tail
     }
 
     #[inline]
     fn inverse(&self) -> Self {
-        assert_eq!(self.seq[0], T::from(0));
+        assert_eq!(self.seq[0], T::zero());
         let mut r = Self::zero();
-        let comp = self.clone().lshift();
+        let comp = self.lshift();
         r.cnt = self.cnt;
         for _i in 0..self.cnt {
-            r = (Self::promote(T::from(1)) / comp.compose(&r)).rshift();
+            r = (Self::one() / comp.compose(&r)).rshift();
         }
-        return r;
+        r
     }
 
     #[inline]
@@ -260,7 +260,7 @@ impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
             *x = self.seq[i] * other.seq[i]
         }
         Self {
-            seq: seq,
+            seq,
             cnt: std::cmp::min(self.cnt, other.cnt)
         }
     }
@@ -268,14 +268,14 @@ impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
     #[inline]
     fn sqrt(&self) -> Self {
         // for now, tonnelli-shanks later
-        assert!(self.seq[0] == T::from(1));
-        let mut r = Self::promote(T::from(1));
+        assert!(self.seq[0].is_one());
+        let mut r = Self::one();
         for _i in 0..N {
-            let q = (self.clone() - r.clone() * r.clone()).tail_term() / (Self::promote(T::from(2)) * r.clone()).tail_term();
-            if q == Self::promote(T::from(0)) {
+            let q = (self - r * r).tail_term() / (Self::promote(T::from(2)) * r).tail_term();
+            if q.is_zero() {
                 return r;
             }
-            r = r + q;
+            r += q;
         }
         r
     }
@@ -292,7 +292,7 @@ impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
             *x = if i + 1 == N { T::zero() } else { self.seq[i+1] };
         }
         Self {
-            seq: seq,
+            seq,
             cnt: self.cnt.saturating_sub(1)
         }
     }
@@ -304,7 +304,7 @@ impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
             *x = if i == 0 { T::zero() } else { self.seq[i-1] };
         }
         Self {
-            seq: seq,
+            seq,
             cnt: std::cmp::min(N as u8, self.cnt + 1)
         }
     }
@@ -325,26 +325,26 @@ impl<T: Field + Copy, const N: usize> FixedSeq<T, N> {
             *x = T::from(arr[i]);
         }
         Self {
-            seq: seq,
+            seq,
             cnt: N as u8
         }
     }
     #[inline]
     fn tail_term(self) -> Self {
         let mut found = false;
-        let mut seq = self.seq.clone();
+        let mut seq = self.seq;
         for x in seq.iter_mut() {
-            if *x == T::from(0) {
+            if x.is_zero() {
                 continue;
             }
             if found {
-                *x = T::from(0);
+                *x = T::zero();
             } else {
                 found = true;
             }
         }
         Self {
-            seq: seq,
+            seq,
             cnt: self.cnt
         }
     }
@@ -363,8 +363,13 @@ mod tests {
     use crate::PowerSeries;
     #[test]
     fn mul_test() {
-        let catalan = ShortSeq::<ModIntP32>::new_u32([	1, 1, 2, 5, 14, 42, 132, 429, 1430, 4862, 16796, 58786, 208012, 742900, 2674440, 9694845]);
+        let catalan = ShortSeq::<ModIntP32>::new_u32([1, 1, 2, 5, 14, 42, 132, 429, 1430, 4862, 16796, 58786, 208012, 742900, 2674440, 9694845]);
         assert_eq!(catalan, (catalan * catalan).rshift() + ShortSeq::<ModIntP32>::promote(ModIntP32::from(1)));
+        let mut sq = catalan; 
+        sq *= catalan;
+        sq = sq.rshift();
+        sq += ShortSeq::<ModIntP32>::promote(ModIntP32::from(1));
+        assert_eq!(catalan, sq);
     }
 
     #[test]

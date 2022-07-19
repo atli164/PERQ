@@ -46,10 +46,10 @@ impl<T: Field + std::str::FromStr + Ord + Copy + std::marker::Sync> ShortSeqDB<T
             }
             let mut vals = [T::zero(); 16];
             let mut ind = 0;
-            let mut iter = line.split(",");
+            let mut iter = line.split(',');
             // Line starts with "A". Unwrap is OK since A-numbers do not overflow 32 bits
             let a_num = match iter.next() {
-                Some(s) => u32::from_str_radix(&s.trim()[1..], 10).unwrap(),
+                Some(s) => (s.trim()[1..]).parse::<u32>().unwrap(),
                 None => break
             };
             for s in iter {
@@ -78,9 +78,7 @@ impl<T: Field + std::str::FromStr + Ord + Copy + std::marker::Sync> ShortSeqDB<T
         let mut conn = vec![];
         for i in 0..self.anum.len() {
             if self.seqs[i].seq.len() >= 10 {
-                if !in_db.contains_key(&self.seqs[i]) {
-                    in_db.insert(self.seqs[i].clone(), i);
-                }
+                in_db.entry(self.seqs[i]).or_insert(i);
             }
             conn.push((AtomicU32::new(0), i as u32))
         }
@@ -142,7 +140,7 @@ impl<T: Field + std::str::FromStr + Ord + Copy + std::marker::Sync> ShortSeqDB<T
             }
         });
         let mut to_sort: Vec<(u32, u32)> = conn.iter().map(|(x, y)| (x.load(SeqCst), *y)).collect();
-        to_sort.sort();
+        to_sort.sort_unstable();
         let strings: Vec<String> = to_sort.iter().map(|(x, y)| x.to_string() + "," + &self.anum[*y as usize].to_string()).collect();
         let mut file = std::fs::File::create("conn.txt")?;
         writeln!(file, "{}", strings.join(", "))?;

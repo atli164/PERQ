@@ -1,5 +1,5 @@
 use crate::{Ring, Field};
-use std::ops::{Add, Sub, Mul, Neg};
+use std::ops::{Add, Sub, Mul, Neg, AddAssign, SubAssign, MulAssign};
 use std::iter::zip;
 
 #[derive(Debug, Clone)]
@@ -22,10 +22,11 @@ impl<T: Ring + Copy> std::ops::IndexMut<(usize,usize)> for Matrix<T> {
     }
 }
 
-impl<T: Ring + Copy> Add for Matrix<T> {
-    type Output = Self;
-    fn add(self, other: Self) -> Self {
-        Self {
+impl<'a, 'b, T: Ring + Copy> Add<&'a Matrix<T>> for &'b Matrix<T> {
+    type Output = Matrix<T>;
+
+    fn add(self, other: &'a Matrix<T>) -> Matrix<T> {
+        Matrix::<T> {
             r: self.r,
             c: self.c,
             dat: zip(self.dat.iter(), other.dat.iter()).map(|(&x, &y)| x + y).collect()
@@ -33,10 +34,17 @@ impl<T: Ring + Copy> Add for Matrix<T> {
     }
 }
 
-impl<T: Ring + Copy> Sub for Matrix<T> {
-    type Output = Self;
-    fn sub(self, other: Self) -> Self {
-        Self {
+impl<'a, T: Ring + Copy> AddAssign<&'a Matrix<T>> for Matrix<T> {
+    fn add_assign(&mut self, other: &'a Matrix<T>) {
+        zip(self.dat.iter_mut(), other.dat.iter()).for_each(|(x, &y)| *x += y);
+    }
+}
+
+impl<'a, 'b, T: Ring + Copy> Sub<&'a Matrix<T>> for &'b Matrix<T> {
+    type Output = Matrix<T>;
+
+    fn sub(self, other: &'a Matrix<T>) -> Matrix<T> {
+        Matrix::<T> {
             r: self.r,
             c: self.c,
             dat: zip(self.dat.iter(), other.dat.iter()).map(|(&x, &y)| x - y).collect()
@@ -44,10 +52,17 @@ impl<T: Ring + Copy> Sub for Matrix<T> {
     }
 }
 
-impl<T: Ring + Copy> Neg for Matrix<T> {
-    type Output = Self;
-    fn neg(self) -> Self {
-        Self {
+impl<'a, T: Ring + Copy> SubAssign<&'a Matrix<T>> for Matrix<T> {
+    fn sub_assign(&mut self, other: &'a Matrix<T>) {
+        zip(self.dat.iter_mut(), other.dat.iter()).for_each(|(x, &y)| *x -= y);
+    }
+}
+
+impl<'a, T: Ring + Copy> Neg for &'a Matrix<T> {
+    type Output = Matrix<T>;
+
+    fn neg(self) -> Matrix<T> {
+        Matrix::<T> {
             r: self.r,
             c: self.c,
             dat: self.dat.iter().map(|&x| -x).collect()
@@ -55,14 +70,15 @@ impl<T: Ring + Copy> Neg for Matrix<T> {
     }
 }
 
-impl<T: Ring + Copy> Mul for Matrix<T> {
-    type Output = Self;
-    fn mul(self, other: Self) -> Self {
-        let mut res = Self::new(self.r, other.c);
+impl<'a, 'b, T: Ring + Copy> Mul<&'a Matrix<T>> for &'b Matrix<T> {
+    type Output = Matrix<T>;
+
+    fn mul(self, other: &'a Matrix<T>) -> Matrix<T> {
+        let mut res = Matrix::<T>::new(self.r, other.c);
         for i in 0..self.r {
             for k in 0..self.c {
                 for j in 0..other.c {
-                    res[(i, j)] = res[(i, j)] + self[(i, k)] * other[(k, j)];
+                    res[(i, j)] += self[(i, k)] * other[(k, j)];
                 }
             }
         }
@@ -70,11 +86,19 @@ impl<T: Ring + Copy> Mul for Matrix<T> {
     }
 }
 
+impl<'a, T: Ring + Copy> MulAssign<&'a Matrix<T>> for Matrix<T> {
+    fn mul_assign(&mut self, other: &'a Matrix<T>) {
+        *self = &*self * other;
+    }
+}
+
+forward_from_ref_ring! { impl Ring for Matrix<T> where T: Ring + Copy }
+
 impl<T: Ring + Copy> Matrix<T> {
     pub fn new(r: usize, c: usize) -> Self {
         Self {
-            r: r,
-            c: c,
+            r,
+            c,
             dat: vec![T::zero(); r * c]
         }
     }
@@ -83,11 +107,11 @@ impl<T: Ring + Copy> Matrix<T> {
 impl<T: Field + Copy> Matrix<T> {
     // returns reduced matrix, determinant and rank
     fn rref(&self) -> (Self, T, usize) {
-        let (mut mat, mut det, mut rank) = (self.clone(), T::from(1u32), 0);
+        let (mut mat, mut det, mut rank) = (self.clone(), T::one(), 0);
         let mut ri = 0;
         for ci in 0..self.c {
             let mut k = ri;
-            while k < self.r && mat[(k, ci)] == T::from(0u32) {
+            while k < self.r && mat[(k, ci)].is_zero() {
                 k += 1;
             }
             if k == self.r {
@@ -99,17 +123,18 @@ impl<T: Field + Copy> Matrix<T> {
                     mat.dat.swap(k * self.c + i, ri * self.c + i);
                 }
             }
-            det = det * mat[(ri, ri)];
+            det *= mat[(ri, ri)];
             rank += 1;
             let d = mat[(ri, ci)];
             for i in 0..self.c {
-                mat[(ri, i)] = mat[(ri, i)] / d;
+                mat[(ri, i)] /= d;
             }
             for i in 0..self.r {
                 let piv = mat[(i, ci)];
-                if i != ri && piv != T::from(0u32) {
+                if i != ri && !piv.is_zero() {
                     for j in 0..self.c {
-                        mat[(i, j)] = mat[(i, j)] - piv * mat[(ri, j)];
+                        let z = piv * mat[(ri, j)];
+                        mat[(i, j)] -= z;
                     }
                 }
             }
@@ -126,7 +151,7 @@ impl<T: Field + Copy> Matrix<T> {
             for j in 0..self.c {
                 aug[(i, j)] = self[(i, j)];
             }
-            aug[(i, i + self.c)] = T::from(1u32);
+            aug[(i, i + self.c)] = T::one();
         }
         let (reduced, _det, rank) = aug.rref();
         if rank != self.c {
@@ -140,7 +165,7 @@ impl<T: Field + Copy> Matrix<T> {
         }
         Some(res)
     }
-    pub fn solve(&self, targ: &Vec<T>) -> Option<Vec<T>> {
+    pub fn solve(&self, targ: &[T]) -> Option<Vec<T>> {
         if targ.len() != self.r {
             return None;
         }
@@ -167,7 +192,7 @@ impl<T: Field + Copy> Matrix<T> {
             }
             let mut sm = reduced[(i, self.c)];
             for j in piv+1..self.c {
-                sm = sm - reduced[(i, j)] * res[j];
+                sm -= reduced[(i, j)] * res[j];
             }
             res[piv] = sm;
         }
