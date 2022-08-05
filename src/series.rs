@@ -1,4 +1,5 @@
-use std::ops::{Add, Sub, Neg, Mul, Div, AddAssign, SubAssign, MulAssign, DivAssign};
+use std::ops::{Add, Sub, Neg, Mul, Div, AddAssign, SubAssign, MulAssign, DivAssign, Index, IndexMut};
+use std::cmp::min;
 use std::iter::{zip, once};
 use crate::{PowerSeries};
 use crate::mathtypes::{Zero, One};
@@ -6,19 +7,21 @@ use rug::{Rational, Complete};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct Series {
-    pub seq: Vec<Rational>
+    pub seq: Vec<Rational>,
+    pub acc: usize
 }
 
 impl Zero for Series {
     #[inline]
     fn zero() -> Self {
         Self {
-            seq: vec![Rational::new()]
+            seq: vec![],
+            acc: usize::MAX
         }
     }
     #[inline]
     fn is_zero(&self) -> bool {
-        if self.seq.is_empty() {
+        if self.acc == 0 {
             return false;
         }
         self.seq.iter().all(|x| x.cmp0() == std::cmp::Ordering::Equal)
@@ -29,7 +32,8 @@ impl One for Series {
     #[inline]
     fn one() -> Self {
         Self {
-            seq: vec![Rational::from(1)]
+            seq: vec![Rational::from(1)],
+            acc: usize::MAX
         }
     }
     #[inline]
@@ -57,7 +61,8 @@ impl<'a, 'b> Add<&'a Series> for &'b Series {
     #[inline]
     fn add(self, other: &'a Series) -> Series {
         Series {
-            seq: zip(self.seq.iter(), other.seq.iter()).map(|(x, y)| x + y).map(|z| z.complete()).collect()
+            seq: zip(self.seq.iter(), other.seq.iter()).map(|(x, y)| x + y).map(|z| z.complete()).collect(),
+            acc: min(self.acc, other.acc)
         }
     }
 }
@@ -75,7 +80,8 @@ impl<'a> Neg for &'a Series {
     #[inline]
     fn neg(self) -> Series {
         Series {
-            seq: self.seq.iter().map(|x| (-x).complete()).collect()
+            seq: self.seq.iter().map(|x| (-x).complete()).collect(),
+            acc: self.acc
         }
     }
 }
@@ -86,7 +92,8 @@ impl<'a, 'b> Sub<&'a Series> for &'b Series {
     #[inline]
     fn sub(self, other: &'a Series) -> Series {
         Series {
-            seq: zip(self.seq.iter(), other.seq.iter()).map(|(x, y)| x - y).map(|z| z.complete()).collect()
+            seq: zip(self.seq.iter(), other.seq.iter()).map(|(x, y)| x - y).map(|z| z.complete()).collect(),
+            acc: min(self.acc, other.acc)
         }
     }
 }
@@ -103,7 +110,7 @@ impl<'a, 'b> Mul<&'a Series> for &'b Series {
 
     #[inline]
     fn mul(self, other: &'a Series) -> Series {
-        let n = std::cmp::min(self.seq.len(), other.seq.len());
+        let n = min(self.seq.len(), other.seq.len());
         let mut seq = vec![Default::default(); n];
         for i in 0..n {
             for j in 0..n-i {
@@ -111,8 +118,10 @@ impl<'a, 'b> Mul<&'a Series> for &'b Series {
                 seq[i + j] += prod;
             }
         }
+        // more fanciful acc later
         Series {
-            seq
+            seq,
+            acc: min(self.acc, other.acc)
         }
     }
 }
@@ -127,7 +136,7 @@ impl<'a> MulAssign<&'a Series> for Series {
 impl<'a> DivAssign<&'a Series> for Series {
     #[inline]
     fn div_assign(&mut self, other: &'a Series) {
-        let n = std::cmp::min(self.seq.len(), other.seq.len());
+        let n = min(self.seq.len(), other.seq.len());
         for i in 0..n {
             self.seq[i] /= &other.seq[0];
             for j in (i+1)..n {
@@ -151,136 +160,82 @@ impl<'a, 'b> Div<&'a Series> for &'b Series {
 
 forward_from_ref_field! { impl Field for Series }
 
+impl Index<usize> for Series {
+    type Output = Rational;
+
+    fn index(&self, index: usize) -> &Rational {
+        &self.seq[index]
+    }
+}
+
+impl IndexMut<usize> for Series {
+    fn index_mut(&mut self, index: usize) -> &mut Rational {
+        &mut self.seq[index]
+    }
+}
+
 impl PowerSeries for Series {
     type Coeff = Rational;
 
     #[inline]
-    fn promote(x: Rational) -> Self {
-        let mut res: Self = Default::default();
-        res.seq.push(x);
-        res
-    }
-
-    #[inline]
-    fn coefficient(&self, i: usize) -> Self::Coeff {
-        self.seq[i].clone()
-    }
-
-    #[inline]
-    fn identity() -> Self {
-        let mut res: Self = Default::default();
-        res.seq.push(Rational::from(1));
-        res
-    }
-
-    #[inline]
-    fn derive(&self) -> Self {
-        Self {
-            seq: self.seq.iter().enumerate().skip(1).map(|(i, x)| Rational::from(i as u32) * x).collect()
+    fn expand_to(&mut self, l: usize) {
+        if l > self.seq.len() {
+            self.seq.resize(l, Self::Coeff::zero());
         }
     }
 
     #[inline]
-    fn integrate(&self) -> Self {
-        Self {
-            seq: once(Default::default()).chain(self.seq.iter().enumerate().map(|(i, x)| x / Rational::from((i + 1) as u32))).collect()
+    fn accuracy(&self) -> usize {
+        self.seq.len()
+    }
+
+    #[inline]
+    fn nonzero_num(&self) -> usize {
+        let mut ans = self.seq.len();
+        while ans > 0 && self[ans - 1].is_zero() {
+            ans -= 1;
         }
+        ans
     }
 
     #[inline]
-    fn compose(&self, other: &Self) -> Self {
-        assert_eq!(other.seq[0], Rational::from(0));
-        if self.seq.len() == 1 { return self.clone(); }
-        let reccomp = self.lshift().compose(other);
-        let mut tail = (other.lshift() * reccomp).rshift();
-        tail.seq[0] += &self.seq[0];
-        tail
-    }
-
-    #[inline]
-    fn inverse(&self) -> Self {
-        assert_eq!(self.seq[0], Rational::from(0));
-        let mut r = Self {
-            seq: vec![Default::default(); self.seq.len()]
-        };
-        let comp = self.lshift();
-        for _i in 0..self.seq.len() {
-            r = (Self::promote(Rational::from(1)) / comp.compose(&r)).rshift();
-        }
-        r
-    }
-
-    #[inline]
-    fn hadamard(&self, other: &Self) -> Self {
-        Self {
-            seq: zip(self.seq.iter(), other.seq.iter()).map(|(x, y)| x * y).map(|z| z.complete()).collect()
-        }
-    }
-
-    #[inline]
-    fn sqrt(&self) -> Self {
-        // for now, tonnelli-shanks later
-        assert!(self.seq[0].is_one());
-        let mut r = Self::promote(Rational::from(1));
-        for _i in 0..self.seq.len() {
-            let q = (self.clone() - r.clone() * r.clone()).tail_term() / (Self::promote(Rational::from(2)) * r.clone()).tail_term();
-            if q == Self::promote(Rational::from(0)) {
-                return r;
-            }
-            r += q;
-        }
-        r
-    }
-
-    #[inline]
-    fn ratpow(self, _p: i64, _q: i64) -> Self {
-        unimplemented!()
+    fn limit_accuracy(&mut self, l: usize) {
+        self.acc = min(self.acc, l);
+        self.seq.truncate(l);
     }
 
     #[inline]
     fn lshift(&self) -> Self {
-        Self {
-            seq: self.seq.iter().skip(1).cloned().collect()
-        }
+        Self::new(
+            self.seq.iter().skip(1).cloned().collect()
+        )
     }
 
     #[inline]
     fn rshift(&self) -> Self {
-        Self {
-            seq: once(Default::default()).chain(self.seq.iter().cloned()).collect()
-        }
+        Self::new(
+            once(Default::default()).chain(self.seq.iter().cloned()).collect()
+        )
     }
 }
 
 impl Series {
     fn new(vec: Vec<Rational>) -> Self {
+        let acc = vec.len();
         Self {
-            seq: vec
+            seq: vec,
+            acc
         }
     }
     fn new_u32(vec: Vec<u32>) -> Self {
-        Self {
-            seq: vec.iter().map(|&x| Rational::from(x)).collect()
-        }
-    }
-    #[inline]
-    fn tail_term(&self) -> Self {
-        let mut found = false;
-        Self {
-            seq: self.seq.iter().map(|x| 
-                if found || x.cmp0() == std::cmp::Ordering::Equal { 
-                    x.clone()
-                } else { 
-                    found = true; 
-                    Rational::from(0) 
-                } 
-            ).collect()
-        }
+        Self::new(
+            vec.iter().map(|&x| Rational::from(x)).collect()
+        )
     }
     #[inline]
     fn pop(&self) -> Self {
-        Self {
-            seq: self.seq.iter().take(self.seq.len() - 1).cloned().collect()
-        }
+        Self::new(
+            self.seq.iter().take(self.seq.len() - 1).cloned().collect()
+        )
     }
 }

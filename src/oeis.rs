@@ -1,10 +1,11 @@
 use crate::{ShortSeq, Field};
-use crate::mathtypes::PowerSeries;
+use crate::powerseries::PowerSeries;
 use crate::hashing::FastIntHashTable;
 use std::io::{BufRead, Write};
 use rayon::prelude::*;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering::SeqCst;
+use std::iter::zip;
 
 #[derive(Debug)]
 pub struct ShortSeqDB<T: Field + Copy> {
@@ -73,6 +74,65 @@ impl<T: Field + std::str::FromStr + Ord + Copy + std::marker::Sync> ShortSeqDB<T
         Ok(db)
     }
 
+    pub fn seq_conn(self, anum: u32) {
+        let mut in_db = std::collections::BTreeMap::<ShortSeq<T>, usize>::new();
+        let mut ind = 0;
+        for i in 0..self.anum.len() {
+            if self.anum[i] == anum {
+                ind = i;
+            }
+            if self.seqs[i].seq.len() >= 10 {
+                in_db.entry(self.seqs[i]).or_insert(i);
+            }
+        }
+        if self.anum[ind] != anum {
+            return;
+        }
+        (0..self.anum.len()).into_par_iter().for_each(|i| {
+            let mut cplx = 0;
+            let mut lead = 16;
+            for j in 0..self.seqs[i].cnt as usize {
+                if !self.seqs[i].seq[j].is_zero() {
+                    lead = std::cmp::min(j, lead);
+                }
+                if !self.seqs[i].seq[j].is_zero() && !self.seqs[i].seq[j].is_one() {
+                    cplx += 1;
+                }
+            }
+            if cplx < 8 || lead > 4 {
+                return;
+            }
+            if *in_db.get(&self.seqs[i]).unwrap() != i {
+                return;
+            }
+            let sum = self.seqs[i] + self.seqs[ind];
+            let diff1 = self.seqs[i] - self.seqs[ind];
+            let diff2 = self.seqs[ind] - self.seqs[i];
+            let mul = self.seqs[i] * self.seqs[ind];
+            let mut cand2 = vec![sum, diff1, diff2, mul];
+            let mut names = vec!["sum", "diff1", "diff2", "mul"];
+            if self.seqs[i].seq[0].is_zero() {
+                cand2.push(self.seqs[ind].compose(&self.seqs[i]));
+                names.push("compose1");
+            } else {
+                cand2.push(self.seqs[ind] / self.seqs[i]);
+                names.push("div2");
+            }
+            if self.seqs[ind].seq[0].is_zero() {
+                cand2.push(self.seqs[i].compose(&self.seqs[ind]));
+                names.push("compose1");
+            } else {
+                cand2.push(self.seqs[i] / self.seqs[ind]);
+                names.push("div2");
+            }
+            for (seq, name) in zip(cand2.iter(), names.iter()) {
+                if let Some(k) = in_db.get(&seq) {
+                    println!("{} {} {}", self.anum[i], self.anum[*k], name);
+                }
+            }
+        });
+    }
+
     pub fn connectivity(self) -> std::io::Result<()> {
         let mut in_db = std::collections::BTreeMap::<ShortSeq<T>, usize>::new();
         let mut conn = vec![];
@@ -84,7 +144,17 @@ impl<T: Field + std::str::FromStr + Ord + Copy + std::marker::Sync> ShortSeqDB<T
         }
         (0..self.anum.len()).into_par_iter().for_each(|i| {
             println!("{} / {}", i, self.anum.len());
-            if self.seqs[i].cnt < 10 {
+            let mut cplx = 0;
+            let mut lead = 16;
+            for j in 0..self.seqs[i].cnt as usize {
+                if !self.seqs[i].seq[j].is_zero() {
+                    lead = std::cmp::min(j, lead);
+                }
+                if !self.seqs[i].seq[j].is_zero() && !self.seqs[i].seq[j].is_one() {
+                    cplx += 1;
+                }
+            }
+            if cplx < 8 || lead > 4 {
                 return;
             }
             if *in_db.get(&self.seqs[i]).unwrap() != i {

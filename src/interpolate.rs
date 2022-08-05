@@ -13,16 +13,16 @@ use crate::matrix::Matrix;
 // Confidence level is calculated in terms of overfit degrees of freedom
 
 // berlekamp-massey algorithm
-pub fn find_c_recursive<T: Field + Copy>(seq: &[T], max_deg: usize) -> Option<Vec<T>> {
+pub fn find_c_recursive<T: Field>(seq: &[T], max_deg: usize) -> Option<Vec<T>> {
     let (mut m, mut l, mut b) = (1, 0, T::one());
     let (mut cp, mut bp, mut tmp, mut res) = (vec![T::one()], vec![T::one()], vec![], vec![]);
     for i in 0..seq.len() {
         if l > max_deg {
             return None;
         }
-        let mut d = seq[i];
+        let mut d = seq[i].clone();
         for j in 1..l+1 {
-            d += cp[j] * seq[i - j]; 
+            d += cp[j].clone() * &seq[i - j]; 
         }
         if d.is_zero() {
             m += 1;
@@ -34,9 +34,9 @@ pub fn find_c_recursive<T: Field + Copy>(seq: &[T], max_deg: usize) -> Option<Ve
             cp.resize_with(l + 1, T::zero);
             tmp = cp.clone();
         }
-        let a = d / b;
+        let a = d.clone() / &b;
         for j in m..cp.len() {
-            cp[j] -= a * bp[j - m];
+            cp[j] -= a.clone() * &bp[j - m];
         }
         m += 1;
         if sw {
@@ -45,13 +45,13 @@ pub fn find_c_recursive<T: Field + Copy>(seq: &[T], max_deg: usize) -> Option<Ve
             m = 1;
         }
     }
-    for &val in cp.iter().skip(1).take(l) {
+    for val in cp.into_iter().skip(1).take(l) {
         res.push(-val);
     }
     Some(res)
 }
 
-pub fn find_hypergeometric<T: Field + Copy>(seq: &[T], max_deg: usize) -> Option<(Vec<T>, Vec<T>)> {
+pub fn find_hypergeometric<T: Field>(seq: &[T], max_deg: usize) -> Option<(Vec<T>, Vec<T>)> {
     // P(n)a(n+1) = Q(n)a(n)
     // Normalize by setting coefficient sum of P to 1
     let mat_sz = 2 * (max_deg + 1);
@@ -63,8 +63,8 @@ pub fn find_hypergeometric<T: Field + Copy>(seq: &[T], max_deg: usize) -> Option
     for i in 0..mat_sz-1 {
         let mut jpow = T::one();
         for j in 0..max_deg+1 {
-            mat[(i, 2 * j)] = seq[i] * jpow;
-            mat[(i, 2 * j + 1)] = -seq[i + 1] * jpow;
+            mat[(i, 2 * j)] = seq[i].clone() * &jpow;
+            mat[(i, 2 * j + 1)] = -seq[i + 1].clone() * &jpow;
             jpow *= T::from(i as u32);
         }
         targ.push(T::zero());
@@ -75,7 +75,7 @@ pub fn find_hypergeometric<T: Field + Copy>(seq: &[T], max_deg: usize) -> Option
     targ.push(T::one());
     let ret = mat.solve(&targ)?;
     let (mut p, mut q) = (vec![], vec![]);
-    for (i, &val) in ret.iter().enumerate() {
+    for (i, val) in ret.into_iter().enumerate() {
         if i % 2 == 0 {
             q.push(val);
         } else {
@@ -92,21 +92,21 @@ pub fn find_hypergeometric<T: Field + Copy>(seq: &[T], max_deg: usize) -> Option
         let mut psm = T::zero();
         for j in (0..p.len()).rev() {
             psm *= T::from(i as u32);
-            psm += p[j];
+            psm += &p[j];
         }
         let mut qsm = T::zero();
         for j in (0..q.len()).rev() {
             qsm *= T::from(i as u32);
-            qsm += q[j];
+            qsm += &q[j];
         }
-        if psm * seq[i + 1] != qsm * seq[i] {
+        if psm.clone() * &seq[i + 1] != qsm.clone() * &seq[i] {
             return None;
         }
     }
     Some((p, q))
 }
 
-pub fn find_p_recursive<T: Field + Copy>(seq: &[T], max_deg: usize, max_num: usize) -> Option<Vec<Vec<T>>> {
+pub fn find_p_recursive<T: Field>(seq: &[T], max_deg: usize, max_num: usize) -> Option<Vec<Vec<T>>> {
     // P_{r-1}(n)a(n+r-1) + ... + P_0(n)a(n) = 0
     // Normalize by setting coeff sum of P_{r-1} to 1
     let mat_sz = max_num * (max_deg + 1);
@@ -119,7 +119,7 @@ pub fn find_p_recursive<T: Field + Copy>(seq: &[T], max_deg: usize, max_num: usi
         let mut jpow = T::one();
         for j in 0..max_deg+1 {
             for k in 0..max_num {
-                mat[(i, max_num * j + k)] = seq[i + k] * jpow;
+                mat[(i, max_num * j + k)] = seq[i + k].clone() * &jpow;
             }
             jpow *= T::from(i as u32);
         }
@@ -131,8 +131,8 @@ pub fn find_p_recursive<T: Field + Copy>(seq: &[T], max_deg: usize, max_num: usi
     targ.push(T::one());
     let ret = mat.solve(&targ)?;
     let mut poly = vec![vec![]; max_num];
-    for i in 0..mat_sz {
-        poly[i % max_num].push(ret[i]);
+    for (i, val) in ret.into_iter().enumerate() {
+        poly[i % max_num].push(val);
     }
     for p in poly.iter_mut() {
         while p.len() > 1 && p.last() == Some(&T::zero()) {
@@ -150,9 +150,9 @@ pub fn find_p_recursive<T: Field + Copy>(seq: &[T], max_deg: usize, max_num: usi
             let mut psm = T::zero();
             for j in (0..poly[r].len()).rev() {
                 psm *= T::from(i as u32);
-                psm += poly[r][j];
+                psm += &poly[r][j];
             }
-            sm += psm * seq[i + r];
+            sm += psm * &seq[i + r];
         }
         if !sm.is_zero() {
             return None;

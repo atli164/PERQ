@@ -30,13 +30,13 @@ impl<T, Rhs> GroupAssign<Rhs> for T where T:
     AddAssign<Rhs> +
     SubAssign<Rhs> {}
 
-pub trait Group: PartialEq + Eq + Zero + Clone + Debug +
+pub trait Group: PartialEq + Eq + Clone + Debug + Sized + Zero +
     GroupOps<Self, Self> +
     for<'r> GroupOps<&'r Self, Self> + 
     GroupAssign<Self> + 
     for<'r> GroupAssign<&'r Self> {}
 
-impl<T> Group for T where T: PartialEq + Eq + Zero + Clone + Debug + 
+impl<T> Group for T where T: PartialEq + Eq + Clone + Debug + Sized + Zero + 
     GroupOps<Self, Self> +
     for<'r> GroupOps<&'r Self, Self> + 
     GroupAssign<Self> + 
@@ -81,30 +81,6 @@ impl<T> Field for T where T: Ring +
     for<'r> FieldOps<&'r Self, Self> +
     FieldAssign<Self> +
     for<'r> FieldAssign<&'r Self> {}
-
-pub trait PowerSeries: Field {
-    type Coeff: Field;
-
-    // Can only have one impl, so promote needs to exist rather than
-    // just having impl<T> From<T> for Powerseries<T>
-    fn promote(coeff: Self::Coeff) -> Self;
-    // Helper function to return polynomial identity function
-    fn identity() -> Self;
-    fn coefficient(&self, i: usize) -> Self::Coeff;
-    fn derive(&self) -> Self;
-    fn integrate(&self) -> Self;
-    // Compositional inverse, multiplicative inverse is done through Div
-    fn inverse(&self) -> Self;
-    fn compose(&self, other: &Self) -> Self;
-    fn hadamard(&self, other: &Self) -> Self;
-    fn sqrt(&self) -> Self;
-    // Rational power
-    fn ratpow(self, p: i64, q: i64) -> Self;
-    // Tail operation
-    fn lshift(&self) -> Self;
-    // Multiply by x
-    fn rshift(&self) -> Self;
-}
 
 impl Zero for Rational {
     fn zero() -> Rational {
