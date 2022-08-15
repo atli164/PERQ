@@ -3,7 +3,6 @@
 #[macro_use]
 mod macros;
 
-mod hashing;
 mod powerseries;
 mod matrix;
 mod fixedseq;

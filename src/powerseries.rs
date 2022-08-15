@@ -3,11 +3,10 @@ use crate::mathtypes::{Zero, One};
 use std::ops::IndexMut;
 use std::cmp::min;
 
-pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + Field {
+pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self::Coeff> + Field {
     type Coeff: Field;
 
     fn accuracy(&self) -> usize;
-    fn nonzero_num(&self) -> usize;
     fn expand_to(&mut self, l: usize);
     fn limit_accuracy(&mut self, l: usize);
     // Tail operation
@@ -15,6 +14,11 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + Field {
     // Multiply by x
     fn rshift(&self) -> Self;
 
+    #[inline]
+    fn matches(&self, other: &Self) -> bool {
+        let acc = min(self.accuracy(), other.accuracy());
+        (0..acc).all(|i| self[i] == other[i])
+    }
 
     #[inline]
     fn promote(coeff: Self::Coeff) -> Self {
@@ -35,17 +39,31 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + Field {
     #[inline]
     fn derive(&self) -> Self {
         let mut res = self.lshift();
-        for i in 0..res.nonzero_num() {
+        for i in 0..res.accuracy() {
             res[i] *= Self::Coeff::from((i+1) as u32);
         }
         res
+    }
+
+    #[inline]
+    fn point(&self) -> Self {
+        let mut res = self.clone();
+        for i in 0..res.accuracy() {
+            res[i] *= Self::Coeff::from(i as u32);
+        }
+        res
+    }
+
+    #[inline]
+    fn log_derive(&self) -> Self {
+        self.derive() / self
     }
 
 
     #[inline]
     fn integrate(&self) -> Self {
         let mut res = self.rshift();
-        for i in 1..self.nonzero_num()+1 {
+        for i in 1..self.accuracy() {
             res[i] /= Self::Coeff::from(i as u32);
         }
         res
@@ -54,7 +72,7 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + Field {
     #[inline]
     fn hadamard(&self, other: &Self) -> Self {
         let mut res = self.clone();
-        let len = min(self.nonzero_num(), other.nonzero_num());
+        let len = min(self.accuracy(), other.accuracy());
         for i in 0..len {
             res[i] *= &other[i];
         }
@@ -65,6 +83,7 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + Field {
     #[inline]
     fn pow(&self, p: i32) -> Self {
         let mut res = Self::one();
+        res.expand_to(self.accuracy());
         let mut b = if p < 0 {
             Self::one() / self
         } else {
@@ -86,8 +105,11 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + Field {
         // for now, check for x^q and such later
         assert!(self[0].is_one());
         let mut r = Self::one();
-        for _i in 0..self.nonzero_num() {
-            let q = (self.clone() - r.clone() * &r).tail_term() / (Self::promote(Self::Coeff::from(q)) * &r).tail_term();
+        r.expand_to(self.accuracy());
+        for _i in 0..self.accuracy() {
+            let mut r2 = Self::promote(Self::Coeff::from(q));
+            r2.expand_to(self.accuracy());
+            let q = (self.clone() - r.clone() * &r).tail_term() / (r2 * &r).tail_term();
             if q.is_zero() {
                 return r;
             }
@@ -101,10 +123,12 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + Field {
     fn inverse(&self) -> Self {
         assert!(self[0].is_zero());
         let mut r = Self::zero();
+        r.expand_to(self.accuracy());
         let comp = self.lshift();
-        r.limit_accuracy(self.accuracy());
-        for _i in 0..self.nonzero_num() {
-            r = (Self::one() / comp.compose(&r)).rshift();
+        for _i in 0..self.accuracy() {
+            let mut one = Self::one();
+            one.expand_to(self.accuracy());
+            r = (one / comp.compose(&r)).rshift();
         }
         r
     }
@@ -145,5 +169,270 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + Field {
         }
         res
     }
-}
 
+    #[inline]
+    fn exp_mul(&self, other: &Self) -> Self {
+        unimplemented!()
+    }
+
+    #[inline]
+    fn dirichlet(&self, other: &Self) -> Self {
+        unimplemented!()
+    }
+
+    #[inline]
+    fn comp_sqrt(&self) -> Self {
+        unimplemented!()
+    }
+
+    // Known series
+    
+    #[inline]
+    fn sin(acc: usize) -> Self {
+        let mut res = Self::identity();
+        res.expand_to(acc);
+        res.limit_accuracy(acc);
+        for i in (3..acc).step_by(2) {
+            res[i] = -res[i - 2].clone() / Self::Coeff::from(i as u32) / Self::Coeff::from((i - 1) as u32);
+        }
+        res
+    }
+
+    #[inline]
+    fn cos(acc: usize) -> Self {
+        let mut res = Self::one();
+        res.expand_to(acc);
+        res.limit_accuracy(acc);
+        for i in (3..acc).step_by(2) {
+            res[i] = -res[i - 2].clone() / Self::Coeff::from(i as u32) / Self::Coeff::from((i - 1) as u32);
+        }
+        res
+    }
+
+    #[inline]
+    fn expx(acc: usize) -> Self {
+        let mut res = Self::one();
+        res.expand_to(acc);
+        res.limit_accuracy(acc);
+        for i in 1..acc {
+            res[i] = res[i - 1].clone() / Self::Coeff::from(i as u32);
+        }
+        res
+    }
+
+    #[inline]
+    // log(1 + x)
+    fn log1px(acc: usize) -> Self {
+        let mut res = Self::identity();
+        res.expand_to(acc);
+        res.limit_accuracy(acc);
+        for i in 2..acc {
+            let denom = if i % 2 == 0 { -Self::Coeff::one() } else { Self::Coeff::one() };
+            res[i] = denom / Self::Coeff::from(i as u32);
+        }
+        res
+    }
+
+
+    // Transforms
+    
+    #[inline]
+    fn partial_sums(&self) -> Self {
+        let mut res = Self::zero();
+        res.expand_to(self.accuracy());
+        let mut sm = Self::Coeff::zero();
+        for i in 0..res.accuracy() {
+            sm += &self[i];
+            res[i] = sm.clone();
+        }
+        res
+    }
+
+    #[inline]
+    fn partial_products(&self) -> Self {
+        let mut res = Self::zero();
+        res.expand_to(self.accuracy());
+        let mut pr = Self::Coeff::one();
+        for i in 0..res.accuracy() {
+            pr *= &self[i];
+            res[i] = pr.clone();
+        }
+        res
+    }
+
+    #[inline]
+    fn delta(&self) -> Self {
+        let mut res = self.lshift();
+        for i in 0..res.accuracy() {
+            res[i] -= &self[i];
+        }
+        res
+    }
+
+    #[inline]
+    fn binomial(&self) -> Self {
+        // compositional definition much slower in practice
+        // calculating binomial coefficients is also slower
+        let mut res = Self::zero();
+        res.expand_to(self.accuracy());
+        let mut summer = self.clone();
+        res[0] = summer[0].clone();
+        for i in 1..self.accuracy() {
+            for j in 0..summer.accuracy()-1 {
+                let nxt = summer[j + 1].clone();
+                summer[j] += nxt;
+            }
+            summer.limit_accuracy(summer.accuracy() - 1);
+            res[i] = summer[0].clone();
+        }
+        res
+    }
+
+    #[inline]
+    fn binomial_inv(&self) -> Self {
+        let mut res = Self::zero();
+        res.expand_to(self.accuracy());
+        let mut summer = self.clone();
+        res[0] = summer[0].clone();
+        for i in 1..self.accuracy() {
+            for j in 0..summer.accuracy()-1 {
+                let nxt = summer[j + 1].clone();
+                summer[j] = nxt - &summer[j];
+            }
+            summer.limit_accuracy(summer.accuracy() - 1);
+            res[i] = summer[0].clone();
+        }
+        res
+    }
+
+    #[inline]
+    fn t019(&self) -> Self {
+        let mut res = self.lshift().lshift();
+        for i in 0..res.accuracy() {
+            res[i] += &self[i];
+        }
+        for i in 0..res.accuracy() {
+            res[i] -= &self[i + 1];
+            res[i] -= &self[i + 1];
+        }
+        res
+    }
+
+    #[inline]
+    fn exp(&self) -> Self {
+        let mut res = Self::expx(self.accuracy()).compose(self);
+        res[0] -= Self::Coeff::one();
+        res
+    }
+
+    #[inline]
+    fn log(&self) -> Self {
+        Self::log1px(self.accuracy()).compose(self)
+    }
+    
+    #[inline]
+    fn laplace(&self) -> Self {
+        let mut fac = Self::Coeff::one();
+        let mut res = self.clone();
+        for i in 2..self.accuracy() {
+            fac *= Self::Coeff::from(i as u32);
+            res[i] *= &fac;
+        }
+        res
+    }
+
+    #[inline]
+    fn laplace_inv(&self) -> Self {
+        let mut fac = Self::Coeff::one();
+        let mut res = self.clone();
+        for i in 2..self.accuracy() {
+            fac *= Self::Coeff::from(i as u32);
+            res[i] /= &fac;
+        }
+        res
+    }
+
+    #[inline]
+    fn bous(&self) -> Self {
+        let n = self.accuracy();
+        let updown = (Self::one() + Self::sin(n)) / Self::cos(n);
+        (self.laplace_inv() * updown).laplace()
+    }
+
+    #[inline]
+    fn bous_inv(&self) -> Self {
+        let n = self.accuracy();
+        let updown = (Self::one() + Self::sin(n)) / Self::cos(n);
+        (self.laplace() / updown).laplace_inv()
+    }
+
+    #[inline]
+    fn mobius(&self) -> Self {
+        unimplemented!()
+    }
+
+    #[inline]
+    fn mobius_inv(&self) -> Self {
+        unimplemented!()
+    }
+
+    #[inline]
+    fn weigh(&self) -> Self {
+        unimplemented!()
+    }
+
+    #[inline]
+    fn stirling(&self) -> Self {
+        unimplemented!()
+    }
+
+    #[inline]
+    fn stirling_inv(&self) -> Self {
+        unimplemented!()
+    }
+
+    #[inline]
+    fn partition(&self) -> Self {
+        unimplemented!()
+    }
+
+    #[inline]
+    fn euler(&self) -> Self {
+        unimplemented!()
+    }
+
+    #[inline]
+    fn euler_inv(&self) -> Self {
+        unimplemented!()
+    }
+
+    #[inline]
+    fn multiset(&self) -> Self {
+        unimplemented!()
+    }
+
+    #[inline]
+    fn powerset(&self) -> Self {
+        unimplemented!()
+    }
+
+    #[inline]
+    fn cycle(&self) -> Self {
+        unimplemented!()
+    }
+
+    #[inline]
+    fn lah(&self) -> Self {
+        unimplemented!()
+    }
+
+    #[inline]
+    fn lah_inv(&self) -> Self {
+        unimplemented!()
+    }
+
+    #[inline]
+    fn cameron(&self) -> Self {
+        unimplemented!()
+    }
+}

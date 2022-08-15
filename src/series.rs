@@ -5,25 +5,20 @@ use crate::{PowerSeries};
 use crate::mathtypes::{Zero, One};
 use rug::{Rational, Complete};
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Hash)]
 pub struct Series {
-    pub seq: Vec<Rational>,
-    pub acc: usize
+    pub seq: Vec<Rational>
 }
 
 impl Zero for Series {
     #[inline]
     fn zero() -> Self {
         Self {
-            seq: vec![],
-            acc: usize::MAX
+            seq: vec![]
         }
     }
     #[inline]
     fn is_zero(&self) -> bool {
-        if self.acc == 0 {
-            return false;
-        }
         self.seq.iter().all(|x| x.cmp0() == std::cmp::Ordering::Equal)
     }
 }
@@ -32,8 +27,7 @@ impl One for Series {
     #[inline]
     fn one() -> Self {
         Self {
-            seq: vec![Rational::from(1)],
-            acc: usize::MAX
+            seq: vec![Rational::from(1)]
         }
     }
     #[inline]
@@ -61,8 +55,7 @@ impl<'a, 'b> Add<&'a Series> for &'b Series {
     #[inline]
     fn add(self, other: &'a Series) -> Series {
         Series {
-            seq: zip(self.seq.iter(), other.seq.iter()).map(|(x, y)| x + y).map(|z| z.complete()).collect(),
-            acc: min(self.acc, other.acc)
+            seq: zip(self.seq.iter(), other.seq.iter()).map(|(x, y)| x + y).map(|z| z.complete()).collect()
         }
     }
 }
@@ -80,8 +73,7 @@ impl<'a> Neg for &'a Series {
     #[inline]
     fn neg(self) -> Series {
         Series {
-            seq: self.seq.iter().map(|x| (-x).complete()).collect(),
-            acc: self.acc
+            seq: self.seq.iter().map(|x| (-x).complete()).collect()
         }
     }
 }
@@ -92,8 +84,7 @@ impl<'a, 'b> Sub<&'a Series> for &'b Series {
     #[inline]
     fn sub(self, other: &'a Series) -> Series {
         Series {
-            seq: zip(self.seq.iter(), other.seq.iter()).map(|(x, y)| x - y).map(|z| z.complete()).collect(),
-            acc: min(self.acc, other.acc)
+            seq: zip(self.seq.iter(), other.seq.iter()).map(|(x, y)| x - y).map(|z| z.complete()).collect()
         }
     }
 }
@@ -118,10 +109,8 @@ impl<'a, 'b> Mul<&'a Series> for &'b Series {
                 seq[i + j] += prod;
             }
         }
-        // more fanciful acc later
         Series {
-            seq,
-            acc: min(self.acc, other.acc)
+            seq
         }
     }
 }
@@ -174,6 +163,16 @@ impl IndexMut<usize> for Series {
     }
 }
 
+impl FromIterator<Rational> for Series {
+    #[inline]
+    fn from_iter<I: IntoIterator<Item=Rational>>(iter: I) -> Self {
+        let vec: Vec<Rational> = iter.into_iter().collect();
+        Self {
+            seq: vec
+        }
+    }
+}
+
 impl PowerSeries for Series {
     type Coeff = Rational;
 
@@ -190,52 +189,34 @@ impl PowerSeries for Series {
     }
 
     #[inline]
-    fn nonzero_num(&self) -> usize {
-        let mut ans = self.seq.len();
-        while ans > 0 && self[ans - 1].is_zero() {
-            ans -= 1;
-        }
-        ans
-    }
-
-    #[inline]
     fn limit_accuracy(&mut self, l: usize) {
-        self.acc = min(self.acc, l);
         self.seq.truncate(l);
     }
 
     #[inline]
     fn lshift(&self) -> Self {
-        Self::new(
-            self.seq.iter().skip(1).cloned().collect()
-        )
+        self.seq.iter().skip(1).cloned().collect()
     }
 
     #[inline]
     fn rshift(&self) -> Self {
-        Self::new(
-            once(Default::default()).chain(self.seq.iter().cloned()).collect()
-        )
+        once(Default::default()).chain(self.seq.iter().cloned()).collect()
     }
 }
 
-impl Series {
-    fn new(vec: Vec<Rational>) -> Self {
-        let acc = vec.len();
-        Self {
-            seq: vec,
-            acc
+impl std::str::FromStr for Series {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut seq = vec![];
+        for t in s.split(',') {
+            let res = Rational::from_str_radix(t, 10);
+            if let Ok(val) = res {
+                seq.push(val);
+            } else {
+                return Err(());
+            }
         }
-    }
-    fn new_u32(vec: Vec<u32>) -> Self {
-        Self::new(
-            vec.iter().map(|&x| Rational::from(x)).collect()
-        )
-    }
-    #[inline]
-    fn pop(&self) -> Self {
-        Self::new(
-            self.seq.iter().take(self.seq.len() - 1).cloned().collect()
-        )
+        Ok(Self { seq })
     }
 }

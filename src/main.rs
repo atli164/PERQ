@@ -1,9 +1,5 @@
-use perq::oeis;
-use perq::ModIntP32;
-use perq::Series;
-use perq::PowerSeries;
-use perq::interpolate::*;
-use rug::{Rational};
+use perq::{oeis, ModIntP32, Series, ShortSeq};
+use std::io::BufRead;
 
 /*
     0,
@@ -79,60 +75,13 @@ use rug::{Rational};
 */
 
 fn main() {
-    // let db = oeis::ShortSeqDB::<ModIntP32>::from_stripped("stripped".to_string()).unwrap();
-    // db.connectivity().unwrap();
-    let dat = vec![
-        Rational::from_str_radix("1", 10).unwrap(),
-        Rational::from_str_radix("2", 10).unwrap(),
-        Rational::from_str_radix("6", 10).unwrap(),
-        Rational::from_str_radix("23", 10).unwrap(),
-        Rational::from_str_radix("103", 10).unwrap(),
-        Rational::from_str_radix("513", 10).unwrap(),
-        Rational::from_str_radix("2762", 10).unwrap(),
-        Rational::from_str_radix("15793", 10).unwrap(),
-        Rational::from_str_radix("94776", 10).unwrap(),
-        Rational::from_str_radix("591950", 10).unwrap(),
-        Rational::from_str_radix("3824112", 10).unwrap(),
-        Rational::from_str_radix("25431452", 10).unwrap(),
-        Rational::from_str_radix("173453058", 10).unwrap(),
-        Rational::from_str_radix("1209639642", 10).unwrap(),
-        Rational::from_str_radix("8604450011", 10).unwrap(),
-        Rational::from_str_radix("62300851632", 10).unwrap(),
-        Rational::from_str_radix("458374397312", 10).unwrap(),
-        Rational::from_str_radix("3421888118907", 10).unwrap(),
-        Rational::from_str_radix("25887131596018", 10).unwrap(),
-        Rational::from_str_radix("198244731603623", 10).unwrap(),
-        Rational::from_str_radix("1535346218316422", 10).unwrap(),
-        Rational::from_str_radix("12015325816028313", 10).unwrap(),
-        Rational::from_str_radix("94944352095728825", 10).unwrap(),
-        Rational::from_str_radix("757046484552152932", 10).unwrap(),
-        Rational::from_str_radix("6087537591051072864", 10).unwrap(),
-        Rational::from_str_radix("49339914891701589053", 10).unwrap(),
-        Rational::from_str_radix("402890652358573525928", 10).unwrap(),
-        Rational::from_str_radix("3313004165660965754922", 10).unwrap(),
-        Rational::from_str_radix("27424185239545986820514", 10).unwrap(),
-        Rational::from_str_radix("228437994561962363104048", 10).unwrap(),
-        Rational::from_str_radix("1914189093351633702834757", 10).unwrap(),
-        Rational::from_str_radix("16130725510342551986540152", 10).unwrap(),
-        Rational::from_str_radix("136664757387536091240503406", 10).unwrap(),
-        Rational::from_str_radix("1163812341034817216384582333", 10).unwrap(),
-        Rational::from_str_radix("9959364766841851088593974979", 10).unwrap(),
-        Rational::from_str_radix("85626551244475524038311935717", 10).unwrap(),
-        Rational::from_str_radix("739479176041581588794042743521", 10).unwrap(),
-        Rational::from_str_radix("6413612398452364144369673970347", 10).unwrap(),
-        Rational::from_str_radix("55855094052029166019855630997080", 10).unwrap(),
-        Rational::from_str_radix("488354507551082299792086219184434", 10).unwrap(),
-        Rational::from_str_radix("4286013140398612535730177106798038", 10).unwrap(),
-        Rational::from_str_radix("37753338738386034300928290519149333", 10).unwrap(),
-        Rational::from_str_radix("333720028221302436110132711265898937", 10).unwrap(),
-        Rational::from_str_radix("2959914488410727889919188039470296624", 10).unwrap(),
-        Rational::from_str_radix("26338690757116988316771828238926079326", 10).unwrap(),
-        Rational::from_str_radix("235113956679181729949424482617740434207", 10).unwrap(),
-        Rational::from_str_radix("2105162587512716675745868833684827184388", 10).unwrap(),
-        Rational::from_str_radix("18904804517351837590874336467009693522354", 10).unwrap(),
-        Rational::from_str_radix("170253750251391700942449152528030601519757", 10).unwrap(),
-        Rational::from_str_radix("1537516984674177479234766336099763469212469", 10).unwrap(),
-    ];
-    let res = find_p_recursive(dat.as_slice(), 8, 4);
-    println!("{:?}", res);
+    let db = oeis::SeqDB::from_stripped("stripped".to_string()).unwrap();
+    println!("READY");
+    let stdin = std::io::stdin();
+    for l in stdin.lock().lines() {
+        let line = l.unwrap();
+        let short: ShortSeq<ModIntP32> = line.parse().unwrap();
+        let long: Series = line.parse().unwrap();
+        db.match_seq(short, &long);
+    }
 }

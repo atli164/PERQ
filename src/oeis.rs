@@ -1,38 +1,54 @@
-use crate::{ShortSeq, Field};
-use crate::powerseries::PowerSeries;
-use crate::hashing::FastIntHashTable;
-use std::io::{BufRead, Write};
-use rayon::prelude::*;
-use std::sync::atomic::AtomicU32;
-use std::sync::atomic::Ordering::SeqCst;
-use std::iter::zip;
+use crate::{ShortSeq, ModIntP32, PowerSeries, Series};
+use crate::interpolate::{find_c_recursive, find_p_recursive};
+use std::collections::BTreeMap;
+use rustc_hash::FxHashMap;
+use std::io::BufRead;
 
-#[derive(Debug)]
-pub struct ShortSeqDB<T: Field + Copy> {
-    a_to_index: FastIntHashTable,
-    anum: Vec<u32>,
-    seqs: Vec<ShortSeq<T>>
+macro_rules! transform_arr {
+    ($x:ident) => {
+        [
+            $x.derive(),
+            $x.integrate(),
+            $x.inverse(),
+            // and so on
+        ]
+    };
 }
 
-impl<T: Field + Copy> Default for ShortSeqDB<T> {
-    fn default() -> ShortSeqDB<T> {
-        ShortSeqDB::<T> {
-            a_to_index: Default::default(),
-            anum: vec![],
-            seqs: vec![]
-        }
-    }
+macro_rules! binop_arr {
+    ($x:ident, $y:ident) => {
+        [
+            $x.compose(&$y),
+            $y.compose(&$x),
+            $x + $y,
+            $x - $y,
+            $y - $x,
+            // and so on
+        ]
+    };
 }
 
-impl<T: Field + std::str::FromStr + Ord + Copy + std::marker::Sync> ShortSeqDB<T> {
+#[derive(Debug, Default)]
+pub struct SeqDB {
+    short_map: BTreeMap<ShortSeq<ModIntP32>, u32>,
+    long_vec: Vec<Series>,
+    a_to_ind: FxHashMap<u32, usize>
+}
+
+impl SeqDB {
     fn new() -> Self {
         Default::default()
     }
 
-    fn add_entry(&mut self, a_num: u32, seq: ShortSeq<T>) {
-        self.a_to_index.insert(a_num, self.seqs.len() as u32);
-        self.seqs.push(seq);
-        self.anum.push(a_num);
+    fn add_entry(&mut self, anum: u32, seq: &str) {
+        let cur_ind = self.a_to_ind.len();
+        let short_seq: ShortSeq<ModIntP32> = seq.parse().unwrap();
+        let long_seq: Series = seq.parse().unwrap();
+        if self.short_map.get(&short_seq).is_none() {
+            self.short_map.insert(short_seq, anum);
+            self.long_vec.push(long_seq);
+            self.a_to_ind.insert(anum, cur_ind);
+        }
     }
 
     pub fn from_stripped(filename: String) -> std::io::Result<Self> {
@@ -45,175 +61,41 @@ impl<T: Field + std::str::FromStr + Ord + Copy + std::marker::Sync> ShortSeqDB<T
             if line.starts_with('#') {
                 continue;
             }
-            let mut vals = [T::zero(); 16];
-            let mut ind = 0;
-            let mut iter = line.split(',');
-            // Line starts with "A". Unwrap is OK since A-numbers do not overflow 32 bits
-            let a_num = match iter.next() {
-                Some(s) => (s.trim()[1..]).parse::<u32>().unwrap(),
-                None => break
-            };
-            for s in iter {
-                vals[ind as usize] = match T::from_str(s) {
-                    Ok(val) => val,
-                    _ => {
-                        break;
-                    }
-                };
-                ind += 1;
-                if ind == 16 {
-                    break;
-                }
-            }
-            db.add_entry(a_num, ShortSeq {
-                seq: vals,
-                cnt: ind
-            });
+            let (apart, seqpart) = line.split_once(" ,").unwrap();
+            let anum: u32 = apart[1..].trim_start_matches('0').parse().unwrap();
+            db.add_entry(anum, &seqpart[..seqpart.len() - 1]);
         }
 
         Ok(db)
     }
 
-    pub fn seq_conn(self, anum: u32) {
-        let mut in_db = std::collections::BTreeMap::<ShortSeq<T>, usize>::new();
-        let mut ind = 0;
-        for i in 0..self.anum.len() {
-            if self.anum[i] == anum {
-                ind = i;
-            }
-            if self.seqs[i].seq.len() >= 10 {
-                in_db.entry(self.seqs[i]).or_insert(i);
+    pub fn match_seq(&self, mut short: ShortSeq<ModIntP32>, long: &Series) {
+        for i in short.accuracy()..16 {
+            short[i] = ModIntP32::from(0u32);
+        }
+        for (k, v) in self.short_map.range(short..) {
+            if !short.matches(k) { break; }
+            let ind = *self.a_to_ind.get(v).unwrap();
+            if self.long_vec[ind].matches(long) {
+                println!("Matches OEIS entry {}", v);
             }
         }
-        if self.anum[ind] != anum {
-            return;
+        let sig = short.accuracy().saturating_sub(2);
+        if find_c_recursive(&short.seq[0..short.accuracy()], sig / 2).is_some() {
+            if let Some(coeff) = find_c_recursive(long.seq.as_slice(), sig) {
+                println!("Matches C-recursive with coefficients {:?}", coeff);
+            }
         }
-        (0..self.anum.len()).into_par_iter().for_each(|i| {
-            let mut cplx = 0;
-            let mut lead = 16;
-            for j in 0..self.seqs[i].cnt as usize {
-                if !self.seqs[i].seq[j].is_zero() {
-                    lead = std::cmp::min(j, lead);
-                }
-                if !self.seqs[i].seq[j].is_zero() && !self.seqs[i].seq[j].is_one() {
-                    cplx += 1;
-                }
-            }
-            if cplx < 8 || lead > 4 {
-                return;
-            }
-            if *in_db.get(&self.seqs[i]).unwrap() != i {
-                return;
-            }
-            let sum = self.seqs[i] + self.seqs[ind];
-            let diff1 = self.seqs[i] - self.seqs[ind];
-            let diff2 = self.seqs[ind] - self.seqs[i];
-            let mul = self.seqs[i] * self.seqs[ind];
-            let mut cand2 = vec![sum, diff1, diff2, mul];
-            let mut names = vec!["sum", "diff1", "diff2", "mul"];
-            if self.seqs[i].seq[0].is_zero() {
-                cand2.push(self.seqs[ind].compose(&self.seqs[i]));
-                names.push("compose1");
-            } else {
-                cand2.push(self.seqs[ind] / self.seqs[i]);
-                names.push("div2");
-            }
-            if self.seqs[ind].seq[0].is_zero() {
-                cand2.push(self.seqs[i].compose(&self.seqs[ind]));
-                names.push("compose1");
-            } else {
-                cand2.push(self.seqs[i] / self.seqs[ind]);
-                names.push("div2");
-            }
-            for (seq, name) in zip(cand2.iter(), names.iter()) {
-                if let Some(k) = in_db.get(&seq) {
-                    println!("{} {} {}", self.anum[i], self.anum[*k], name);
-                }
-            }
-        });
-    }
-
-    pub fn connectivity(self) -> std::io::Result<()> {
-        let mut in_db = std::collections::BTreeMap::<ShortSeq<T>, usize>::new();
-        let mut conn = vec![];
-        for i in 0..self.anum.len() {
-            if self.seqs[i].seq.len() >= 10 {
-                in_db.entry(self.seqs[i]).or_insert(i);
-            }
-            conn.push((AtomicU32::new(0), i as u32))
-        }
-        (0..self.anum.len()).into_par_iter().for_each(|i| {
-            println!("{} / {}", i, self.anum.len());
-            let mut cplx = 0;
-            let mut lead = 16;
-            for j in 0..self.seqs[i].cnt as usize {
-                if !self.seqs[i].seq[j].is_zero() {
-                    lead = std::cmp::min(j, lead);
-                }
-                if !self.seqs[i].seq[j].is_zero() && !self.seqs[i].seq[j].is_one() {
-                    cplx += 1;
-                }
-            }
-            if cplx < 8 || lead > 4 {
-                return;
-            }
-            if *in_db.get(&self.seqs[i]).unwrap() != i {
-                return;
-            }
-            let deriv = self.seqs[i].derive();
-            let integ = self.seqs[i].integrate();
-            let lshft = self.seqs[i].lshift();
-            let rshft = self.seqs[i].rshift();
-            let minus = -self.seqs[i];
-            let mut cand1 = vec![deriv, integ, lshft, rshft, minus];
-            if self.seqs[i].seq[0].is_zero() {
-                cand1.push(self.seqs[i].inverse());
-            }
-            if self.seqs[i].seq[0].is_one() {
-                cand1.push(self.seqs[i].sqrt());
-            }
-            for seq in cand1 {
-                if let Some(j) = in_db.get(&seq) {
-                    conn[i].0.fetch_add(1, SeqCst);
-                    conn[*j].0.fetch_add(1, SeqCst);
-                }
-            }
-            for j in (i+1)..self.anum.len() {
-                if self.seqs[j].seq.len() < 10 {
-                    continue;
-                }
-                if *in_db.get(&self.seqs[j]).unwrap() != j {
-                    continue;
-                }
-                let sum = self.seqs[i] + self.seqs[j];
-                let diff1 = self.seqs[i] - self.seqs[j];
-                let diff2 = self.seqs[j] - self.seqs[i];
-                let mul = self.seqs[i] * self.seqs[j];
-                let mut cand2 = vec![sum, diff1, diff2, mul];
-                if self.seqs[i].seq[0].is_zero() {
-                    cand2.push(self.seqs[j].compose(&self.seqs[i]));
-                } else {
-                    cand2.push(self.seqs[j] / self.seqs[i]);
-                }
-                if self.seqs[j].seq[0].is_zero() {
-                    cand2.push(self.seqs[i].compose(&self.seqs[j]));
-                } else {
-                    cand2.push(self.seqs[i] / self.seqs[j]);
-                }
-                for seq in cand2 {
-                    if let Some(k) = in_db.get(&seq) {
-                        conn[i].0.fetch_add(1, SeqCst);
-                        conn[j].0.fetch_add(1, SeqCst);
-                        conn[*k].0.fetch_add(1, SeqCst);
+        let sig = short.accuracy() + 2;
+        'outer: for i in 1..sig+1 {
+            for j in 1..sig/(i+2)+1 {
+                if find_p_recursive(&short.seq[0..short.accuracy()], i, j).is_some() {
+                    if let Some(coeff) = find_p_recursive(long.seq.as_slice(), i, j) {
+                        println!("Matches P-recursive with coefficients {:?}", coeff);
+                        break 'outer;
                     }
                 }
             }
-        });
-        let mut to_sort: Vec<(u32, u32)> = conn.iter().map(|(x, y)| (x.load(SeqCst), *y)).collect();
-        to_sort.sort_unstable();
-        let strings: Vec<String> = to_sort.iter().map(|(x, y)| x.to_string() + "," + &self.anum[*y as usize].to_string()).collect();
-        let mut file = std::fs::File::create("conn.txt")?;
-        writeln!(file, "{}", strings.join(", "))?;
-        Ok(())
+        }
     }
 }

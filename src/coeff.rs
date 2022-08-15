@@ -1,7 +1,7 @@
 use std::ops::{Add, Sub, Mul, Neg, Div, AddAssign, SubAssign, MulAssign, DivAssign};
 use crate::mathtypes::{One, Zero};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Hash)]
 pub struct ModIntP32 {
     x: u32
 }
@@ -147,7 +147,7 @@ impl From<u32> for ModIntP32 {
     #[inline]
     fn from(x: u32) -> ModIntP32 {
         ModIntP32 {
-            x: x % ModIntP32::MOD
+            x: if x < ModIntP32::MOD { x } else { x % ModIntP32::MOD }
         }
     }
 }
@@ -181,7 +181,7 @@ impl std::str::FromStr for ModIntP32 {
 
 forward_into_ref_field! { impl Field for ModIntP32 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Hash)]
 pub struct MersP31 {
     x: u32
 }
@@ -329,7 +329,7 @@ impl From<u32> for MersP31 {
 
 forward_into_ref_field! { impl Field for MersP31 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Hash)]
 pub struct MersP61 {
     x: u64
 }

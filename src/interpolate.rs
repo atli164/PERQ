@@ -51,6 +51,8 @@ pub fn find_c_recursive<T: Field>(seq: &[T], max_deg: usize) -> Option<Vec<T>> {
     Some(res)
 }
 
+// redundant due to p_recursive for now, but might be more optimizable like berlekamp-massey
+// will be used again if such an optimization is found
 pub fn find_hypergeometric<T: Field>(seq: &[T], max_deg: usize) -> Option<(Vec<T>, Vec<T>)> {
     // P(n)a(n+1) = Q(n)a(n)
     // Normalize by setting coefficient sum of P to 1

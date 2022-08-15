@@ -1,4 +1,5 @@
 use std::ops::{Add, Sub, Mul, Neg, Div, AddAssign, SubAssign, MulAssign, DivAssign};
+use std::str::FromStr;
 use std::fmt::Debug;
 use rug::Rational;
 
@@ -30,13 +31,13 @@ impl<T, Rhs> GroupAssign<Rhs> for T where T:
     AddAssign<Rhs> +
     SubAssign<Rhs> {}
 
-pub trait Group: PartialEq + Eq + Clone + Debug + Sized + Zero +
+pub trait Group: PartialEq + Eq + Clone + Debug + Sized + Zero + FromStr + 
     GroupOps<Self, Self> +
     for<'r> GroupOps<&'r Self, Self> + 
     GroupAssign<Self> + 
     for<'r> GroupAssign<&'r Self> {}
 
-impl<T> Group for T where T: PartialEq + Eq + Clone + Debug + Sized + Zero + 
+impl<T> Group for T where T: PartialEq + Eq + Clone + Debug + Sized + Zero + FromStr +  
     GroupOps<Self, Self> +
     for<'r> GroupOps<&'r Self, Self> + 
     GroupAssign<Self> + 
