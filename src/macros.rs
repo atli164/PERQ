@@ -285,3 +285,34 @@ macro_rules! forward_into_ref_field {
         forward_into_ref_assign! { impl DivAssign, div_assign for $t where $($args)* }
     };
 }
+
+macro_rules! ring_from_str {
+    (impl FromStr for $t:ty) => {
+        impl std::str::FromStr for $t {
+            type Err = ();
+
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                if s.is_empty() {
+                    return Err(());
+                }
+                let mut res = <$t>::from(0u32);
+                let mut neg = false;
+                for (i, c) in s.chars().enumerate() {
+                    if i == 0 && c == '-' {
+                        neg = true;
+                        continue;
+                    }
+                    res *= <$t>::from(10u32);
+                    match c.to_digit(10) {
+                        Some(x) => res += <$t>::from(x),
+                        None => return Err(())
+                    }
+                }
+                if neg {
+                    res = -res;
+                }
+                Ok(res)
+            }
+        }
+    };
+}

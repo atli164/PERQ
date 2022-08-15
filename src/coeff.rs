@@ -152,32 +152,7 @@ impl From<u32> for ModIntP32 {
     }
 }
 
-impl std::str::FromStr for ModIntP32 {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.is_empty() {
-            return Err(());
-        }
-        let mut res = ModIntP32::from(0u32);
-        let mut neg = false;
-        for (i, c) in s.chars().enumerate() {
-            if i == 0 && c == '-' {
-                neg = true;
-                continue;
-            }
-            res *= ModIntP32::from(10u32);
-            match c.to_digit(10) {
-                Some(x) => res += ModIntP32::from(x),
-                None => return Err(())
-            }
-        }
-        if neg {
-            res = -res;
-        }
-        Ok(res)
-    }
-}
+ring_from_str! { impl FromStr for ModIntP32 }
 
 forward_into_ref_field! { impl Field for ModIntP32 }
 
@@ -326,6 +301,8 @@ impl From<u32> for MersP31 {
         (Self { x: res}).reduced()
     }
 }
+
+ring_from_str! { impl FromStr for MersP31 }
 
 forward_into_ref_field! { impl Field for MersP31 }
 
@@ -482,5 +459,7 @@ impl From<u64> for MersP61 {
         }
     }
 }
+
+ring_from_str! { impl FromStr for MersP61 }
 
 forward_into_ref_field! { impl Field for MersP61 }

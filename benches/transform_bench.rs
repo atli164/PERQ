@@ -1,10 +1,10 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use perq::{Field, ModIntP32, PowerSeries, Series, ShortSeq};
+use perq::{Field, ModIntP32, PowerSeries, Series, ShortSeq, MersP31, MersP61};
 
 macro_rules! make_transform_func {
     ($f:ident, $meth:ident, $init:expr) => {
         fn $f(mxn: usize) {
-            let mut s: ShortSeq<ModIntP32> = $init.parse().unwrap();
+            let mut s: ShortSeq<MersP31> = $init.parse().unwrap();
             for _i in 0..mxn {
                 s = s.$meth();
             }
