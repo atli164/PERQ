@@ -1,7 +1,4 @@
 See if GCD can be replaced with Binary GCD with somehow avoiding overflow problems of the version found in the references document.
-Binomial/inverse binomial transform like in superseeker
-Berlekamp-Massey to solve for rational functions
-Linear algebra to solve P-recursive directly with limited parameters? Can't find better algorithms.
 Possibly Petkovseks algorithm for hypergeometric functions to simplify P-recursive results?
 Transforms from https://akc.is/hops/language/
 Check if Newton iteration makes sense in the discrete case

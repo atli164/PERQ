@@ -103,7 +103,7 @@ impl Neg for ModIntP32 {
     #[inline]
     fn neg(self) -> ModIntP32 {
         ModIntP32 {
-            x: ModIntP32::MOD - self.x
+            x: if self.x == 0 { 0 } else { ModIntP32::MOD - self.x }
         }
     }
 }

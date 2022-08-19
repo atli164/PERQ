@@ -80,8 +80,6 @@ fn main() {
     let stdin = std::io::stdin();
     for l in stdin.lock().lines() {
         let line = l.unwrap();
-        let short: ShortSeq<ModIntP32> = line.parse().unwrap();
-        let long: Series = line.parse().unwrap();
-        db.match_seq(short, &long);
+        db.search_full(&line);
     }
 }

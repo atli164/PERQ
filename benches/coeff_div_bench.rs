@@ -8,7 +8,7 @@ fn test_div<T: Field + Copy + std::fmt::Debug>(mxn: usize) {
         if x == T::from(0) { continue; }
         let y = T::from(1) / x;
         assert_eq!(x * y, T::from(1));
-        sm = sm + y;
+        sm = sm + x;
     }
 }
 

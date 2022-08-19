@@ -172,17 +172,22 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
 
     #[inline]
     fn exp_mul(&self, other: &Self) -> Self {
-        unimplemented!()
+        let lap1 = self.laplace_inv();
+        let lap2 = other.laplace_inv();
+        (lap1 * lap2).laplace()
     }
 
     #[inline]
     fn dirichlet(&self, other: &Self) -> Self {
-        unimplemented!()
-    }
-
-    #[inline]
-    fn comp_sqrt(&self) -> Self {
-        unimplemented!()
+        let mut res = Self::zero();
+        let acc = min(self.accuracy(), other.accuracy());
+        res.expand_to(acc);
+        for i in 1..acc {
+            for j in 1..acc/i {
+                res[i * j] += self[j].clone() * &other[i];
+            }
+        }
+        res
     }
 
     // Known series
@@ -368,32 +373,74 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
 
     #[inline]
     fn mobius(&self) -> Self {
-        unimplemented!()
+        let mut mob = vec![Self::Coeff::zero(); self.accuracy()];
+        mob[1] = Self::Coeff::one();
+        for i in 1..self.accuracy() {
+            let lst = mob[i].clone();
+            for j in 2..(self.accuracy()+i-1)/i {
+                mob[i * j] -= &lst;
+            }
+        }
+        let mut res = Self::zero();
+        res.expand_to(self.accuracy());
+        for i in 1..self.accuracy() {
+            for j in 1..(self.accuracy()+i-1)/i {
+                res[i * j] += mob[i].clone() * &self[j];
+            }
+        }
+        res
     }
 
     #[inline]
     fn mobius_inv(&self) -> Self {
-        unimplemented!()
-    }
-
-    #[inline]
-    fn weigh(&self) -> Self {
-        unimplemented!()
+        let mut res = Self::zero();
+        res.expand_to(self.accuracy());
+        for i in 1..self.accuracy() {
+            for j in 1..(self.accuracy()+i-1)/i {
+                res[i * j] += &self[j];
+            }
+        }
+        res
     }
 
     #[inline]
     fn stirling(&self) -> Self {
-        unimplemented!()
+        let mut stirl = vec![vec![Self::Coeff::zero(); self.accuracy()]; self.accuracy()];
+        stirl[0][0] = Self::Coeff::one();
+        for i in 1..self.accuracy() {
+            for j in 1..i+1 {
+                let nw = Self::Coeff::from(j as u32) * &stirl[i - 1][j] + &stirl[i - 1][j - 1];
+                stirl[i][j] += nw;
+            }
+        }
+        let mut res = Self::zero();
+        res.expand_to(self.accuracy());
+        for i in 0..self.accuracy() {
+            for j in 0..i+1 {
+                res[i] += stirl[i][j].clone() * &self[j];
+            }
+        }
+        res
     }
 
     #[inline]
     fn stirling_inv(&self) -> Self {
-        unimplemented!()
-    }
-
-    #[inline]
-    fn partition(&self) -> Self {
-        unimplemented!()
+        let mut stirl = vec![vec![Self::Coeff::zero(); self.accuracy()]; self.accuracy()];
+        stirl[0][0] = Self::Coeff::one();
+        for i in 1..self.accuracy() {
+            for j in 1..i+1 {
+                let nw = -Self::Coeff::from((i-1) as u32) * &stirl[i - 1][j] + &stirl[i - 1][j - 1];
+                stirl[i][j] += nw;
+            }
+        }
+        let mut res = Self::zero();
+        res.expand_to(self.accuracy());
+        for i in 0..self.accuracy() {
+            for j in 0..i+1 {
+                res[i] += stirl[i][j].clone() * &self[j];
+            }
+        }
+        res
     }
 
     #[inline]
@@ -423,16 +470,86 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
 
     #[inline]
     fn lah(&self) -> Self {
-        unimplemented!()
+        let mut fac = vec![];
+        let mut mul = Self::Coeff::one();
+        fac.push(mul.clone());
+        for i in 1..self.accuracy() {
+            mul *= Self::Coeff::from(i as u32);
+            fac.push(mul.clone());
+        }
+        let mut res = Self::zero();
+        res.expand_to(self.accuracy());
+        res.limit_accuracy(self.accuracy());
+        res[0] = self[0].clone();
+        for i in 1..self.accuracy() {
+            for j in 1..i+1 {
+                let coeff = fac[i].clone() * &fac[i - 1] / &fac[j] / &fac[j - 1] / &fac[i - j];
+                res[i] += coeff * &self[j];
+            }
+        }
+        res
     }
 
     #[inline]
     fn lah_inv(&self) -> Self {
-        unimplemented!()
+        let mut fac = vec![];
+        let mut mul = Self::Coeff::one();
+        fac.push(mul.clone());
+        for i in 1..self.accuracy() {
+            mul *= Self::Coeff::from(i as u32);
+            fac.push(mul.clone());
+        }
+        let mut res = Self::zero();
+        res.expand_to(self.accuracy());
+        res.limit_accuracy(self.accuracy());
+        res[0] = self[0].clone();
+        for i in 1..self.accuracy() {
+            for j in 1..i+1 {
+                let coeff = fac[i].clone() * &fac[i - 1] / &fac[j] / &fac[j - 1] / &fac[i - j];
+                if (i - j) % 2 == 0 {
+                    res[i] += coeff * &self[j];
+                } else {
+                    res[i] -= coeff * &self[j];
+                }
+            }
+        }
+        res
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use crate::PowerSeries;
+    use crate::Series;
+
+    #[test]
+    fn test_mobius() {
+        let inp: Series = "0,1,3,4,7,6,12,8,15,13,18,12,28,14,24,24".parse().unwrap();
+        let ans: Series = "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15".parse().unwrap();
+        assert_eq!(inp.mobius(), ans);
+        assert_eq!(inp, ans.mobius_inv());
+        assert_eq!(inp, inp.mobius().mobius_inv());
+        assert_eq!(inp, inp.mobius_inv().mobius());
     }
 
-    #[inline]
-    fn cameron(&self) -> Self {
-        unimplemented!()
+    #[test]
+    fn test_stirling() {
+        let inp: Series = "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15".parse().unwrap();
+        let ans: Series = "0,1,3,10,37,151,674,3263,17007,94828,562595,3535027,23430840,163254885,1192059223,9097183602".parse().unwrap();
+        assert_eq!(inp.stirling(), ans);
+        assert_eq!(ans.stirling_inv(), inp);
+        assert_eq!(inp, inp.stirling().stirling_inv());
+        assert_eq!(inp, inp.stirling_inv().stirling());
+    }
+
+    #[test]
+    fn test_lah() {
+        let inp: Series = "0,1,4,9,16,25,36,49,64,81,100,121,144,169,196,225".parse().unwrap();
+        let ans: Series = "0,1,6,39,292,2505,24306,263431,3154824,41368977,589410910,9064804551,149641946796,2638693215769,49490245341642,983607047803815".parse().unwrap();
+        assert_eq!(inp.lah(), ans);
+        assert_eq!(ans.lah_inv(), inp);
+        assert_eq!(inp, inp.lah().lah_inv());
+        assert_eq!(inp, inp.lah_inv().lah());
     }
 }

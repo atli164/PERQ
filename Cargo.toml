@@ -21,7 +21,7 @@ name = "coeff_div_bench"
 harness = false
 
 [[bench]]
-name = "seq_bench"
+name = "binop_bench"
 harness = false
 
 [[bench]]
