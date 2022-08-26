@@ -45,6 +45,9 @@ pub fn find_c_recursive<T: Field>(seq: &[T], max_deg: usize) -> Option<Vec<T>> {
             m = 1;
         }
     }
+    if l > max_deg {
+        return None;
+    }
     for val in cp.into_iter().skip(1).take(l) {
         res.push(-val);
     }

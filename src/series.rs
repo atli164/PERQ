@@ -210,7 +210,7 @@ impl std::str::FromStr for Series {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut seq = vec![];
         for t in s.split(',') {
-            let res = Rational::from_str_radix(t, 10);
+            let res = Rational::from_str_radix(t.trim(), 10);
             if let Ok(val) = res {
                 seq.push(val);
             } else {

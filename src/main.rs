@@ -1,5 +1,6 @@
-use perq::{oeis, ModIntP32, Series, ShortSeq};
+use perq::oeis;
 use std::io::BufRead;
+use perq::{Series, PowerSeries};
 
 /*
     0,
@@ -81,5 +82,6 @@ fn main() {
     for l in stdin.lock().lines() {
         let line = l.unwrap();
         db.search_full(&line);
+        return;
     }
 }

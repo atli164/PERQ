@@ -15,6 +15,19 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
     fn rshift(&self) -> Self;
 
     #[inline]
+    fn set_accuracy(&mut self, acc: usize) {
+        self.expand_to(acc);
+        self.limit_accuracy(acc);
+    }
+
+    #[inline]
+    fn zeroes(acc: usize) -> Self {
+        let mut res = Self::zero();
+        res.set_accuracy(acc);
+        res
+    }
+
+    #[inline]
     fn matches(&self, other: &Self) -> bool {
         let acc = min(self.accuracy(), other.accuracy());
         (0..acc).all(|i| self[i] == other[i])
@@ -29,10 +42,9 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
     }
 
     #[inline]
-    fn identity() -> Self {
-        let mut res = Self::zero();
-        res.expand_to(1);
-        res[0] = Self::Coeff::one();
+    fn identity(acc: usize) -> Self {
+        let mut res = Self::zeroes(acc);
+        res[1] = Self::Coeff::one();
         res
     }
 
@@ -83,9 +95,9 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
     #[inline]
     fn pow(&self, p: i32) -> Self {
         let mut res = Self::one();
-        res.expand_to(self.accuracy());
+        res.set_accuracy(self.accuracy());
         let mut b = if p < 0 {
-            Self::one() / self
+            res.clone() / self
         } else {
             self.clone()
         };
@@ -105,10 +117,10 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
         // for now, check for x^q and such later
         assert!(self[0].is_one());
         let mut r = Self::one();
-        r.expand_to(self.accuracy());
+        r.set_accuracy(self.accuracy());
         for _i in 0..self.accuracy() {
             let mut r2 = Self::promote(Self::Coeff::from(q));
-            r2.expand_to(self.accuracy());
+            r2.set_accuracy(self.accuracy());
             let q = (self.clone() - r.clone() * &r).tail_term() / (r2 * &r).tail_term();
             if q.is_zero() {
                 return r;
@@ -118,29 +130,37 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
         r.pow(p)
     }
 
-    #[inline]
     // Compositional inverse, multiplicative inverse is done through Div
+    #[inline]
     fn inverse(&self) -> Self {
         assert!(self[0].is_zero());
-        let mut r = Self::zero();
-        r.expand_to(self.accuracy());
-        let comp = self.lshift();
-        for _i in 0..self.accuracy() {
-            let mut one = Self::one();
-            one.expand_to(self.accuracy());
-            r = (one / comp.compose(&r)).rshift();
+        let mut sm = Self::zeroes(self.accuracy());
+        let mut res = sm.clone();
+        res[1] = Self::Coeff::one() / &self[1];
+        let mut fpow = self.clone();
+        for i in 0..self.accuracy() {
+            sm[i] += res[1].clone() * &fpow[i];
         }
-        r
+        for i in 2..self.accuracy() {
+            fpow *= self;
+            res[i] = -sm[i].clone() / &fpow[i];
+            for j in 0..self.accuracy() {
+                sm[j] += res[i].clone() * &fpow[j];
+            }
+        }
+        res
     }
 
     #[inline]
     fn compose(&self, other: &Self) -> Self {
         assert!(other[0].is_zero());
-        if self.is_constant() { return self.clone(); }
-        let reccomp = self.lshift().compose(other);
-        let mut tail = (other.lshift() * reccomp).rshift();
-        tail[0] += self[0].clone();
-        tail
+        let sig = min(self.accuracy(), other.accuracy());
+        let mut res = Self::zeroes(sig);
+        for i in (0..sig).rev() {
+            res *= other;
+            res[0] += &self[i];
+        }
+        res
     }
 
     #[inline]
@@ -179,9 +199,8 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
 
     #[inline]
     fn dirichlet(&self, other: &Self) -> Self {
-        let mut res = Self::zero();
         let acc = min(self.accuracy(), other.accuracy());
-        res.expand_to(acc);
+        let mut res = Self::zeroes(acc);
         for i in 1..acc {
             for j in 1..acc/i {
                 res[i * j] += self[j].clone() * &other[i];
@@ -194,9 +213,7 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
     
     #[inline]
     fn sin(acc: usize) -> Self {
-        let mut res = Self::identity();
-        res.expand_to(acc);
-        res.limit_accuracy(acc);
+        let mut res = Self::identity(acc);
         for i in (3..acc).step_by(2) {
             res[i] = -res[i - 2].clone() / Self::Coeff::from(i as u32) / Self::Coeff::from((i - 1) as u32);
         }
@@ -206,9 +223,8 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
     #[inline]
     fn cos(acc: usize) -> Self {
         let mut res = Self::one();
-        res.expand_to(acc);
-        res.limit_accuracy(acc);
-        for i in (3..acc).step_by(2) {
+        res.set_accuracy(acc);
+        for i in (2..acc).step_by(2) {
             res[i] = -res[i - 2].clone() / Self::Coeff::from(i as u32) / Self::Coeff::from((i - 1) as u32);
         }
         res
@@ -217,20 +233,17 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
     #[inline]
     fn expx(acc: usize) -> Self {
         let mut res = Self::one();
-        res.expand_to(acc);
-        res.limit_accuracy(acc);
+        res.set_accuracy(acc);
         for i in 1..acc {
             res[i] = res[i - 1].clone() / Self::Coeff::from(i as u32);
         }
         res
     }
 
-    #[inline]
     // log(1 + x)
+    #[inline]
     fn log1px(acc: usize) -> Self {
-        let mut res = Self::identity();
-        res.expand_to(acc);
-        res.limit_accuracy(acc);
+        let mut res = Self::identity(acc);
         for i in 2..acc {
             let denom = if i % 2 == 0 { -Self::Coeff::one() } else { Self::Coeff::one() };
             res[i] = denom / Self::Coeff::from(i as u32);
@@ -243,8 +256,7 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
     
     #[inline]
     fn partial_sums(&self) -> Self {
-        let mut res = Self::zero();
-        res.expand_to(self.accuracy());
+        let mut res = Self::zeroes(self.accuracy());
         let mut sm = Self::Coeff::zero();
         for i in 0..res.accuracy() {
             sm += &self[i];
@@ -255,8 +267,7 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
 
     #[inline]
     fn partial_products(&self) -> Self {
-        let mut res = Self::zero();
-        res.expand_to(self.accuracy());
+        let mut res = Self::zeroes(self.accuracy());
         let mut pr = Self::Coeff::one();
         for i in 0..res.accuracy() {
             pr *= &self[i];
@@ -278,8 +289,7 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
     fn binomial(&self) -> Self {
         // compositional definition much slower in practice
         // calculating binomial coefficients is also slower
-        let mut res = Self::zero();
-        res.expand_to(self.accuracy());
+        let mut res = Self::zeroes(self.accuracy());
         let mut summer = self.clone();
         res[0] = summer[0].clone();
         for i in 1..self.accuracy() {
@@ -295,8 +305,7 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
 
     #[inline]
     fn binomial_inv(&self) -> Self {
-        let mut res = Self::zero();
-        res.expand_to(self.accuracy());
+        let mut res = Self::zeroes(self.accuracy());
         let mut summer = self.clone();
         res[0] = summer[0].clone();
         for i in 1..self.accuracy() {
@@ -360,14 +369,18 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
     #[inline]
     fn bous(&self) -> Self {
         let n = self.accuracy();
-        let updown = (Self::one() + Self::sin(n)) / Self::cos(n);
+        let mut one = Self::one();
+        one.set_accuracy(self.accuracy());
+        let updown = (one + Self::sin(n)) / Self::cos(n);
         (self.laplace_inv() * updown).laplace()
     }
 
     #[inline]
     fn bous_inv(&self) -> Self {
         let n = self.accuracy();
-        let updown = (Self::one() + Self::sin(n)) / Self::cos(n);
+        let mut one = Self::one();
+        one.set_accuracy(self.accuracy());
+        let updown = (one + Self::sin(n)) / Self::cos(n);
         (self.laplace() / updown).laplace_inv()
     }
 
@@ -381,8 +394,7 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
                 mob[i * j] -= &lst;
             }
         }
-        let mut res = Self::zero();
-        res.expand_to(self.accuracy());
+        let mut res = Self::zeroes(self.accuracy());
         for i in 1..self.accuracy() {
             for j in 1..(self.accuracy()+i-1)/i {
                 res[i * j] += mob[i].clone() * &self[j];
@@ -393,8 +405,7 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
 
     #[inline]
     fn mobius_inv(&self) -> Self {
-        let mut res = Self::zero();
-        res.expand_to(self.accuracy());
+        let mut res = Self::zeroes(self.accuracy());
         for i in 1..self.accuracy() {
             for j in 1..(self.accuracy()+i-1)/i {
                 res[i * j] += &self[j];
@@ -413,8 +424,7 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
                 stirl[i][j] += nw;
             }
         }
-        let mut res = Self::zero();
-        res.expand_to(self.accuracy());
+        let mut res = Self::zeroes(self.accuracy());
         for i in 0..self.accuracy() {
             for j in 0..i+1 {
                 res[i] += stirl[i][j].clone() * &self[j];
@@ -433,8 +443,7 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
                 stirl[i][j] += nw;
             }
         }
-        let mut res = Self::zero();
-        res.expand_to(self.accuracy());
+        let mut res = Self::zeroes(self.accuracy());
         for i in 0..self.accuracy() {
             for j in 0..i+1 {
                 res[i] += stirl[i][j].clone() * &self[j];
@@ -445,27 +454,37 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
 
     #[inline]
     fn euler(&self) -> Self {
-        unimplemented!()
+        let da = self.point();
+        let c = da.mobius_inv();
+        let mut res = Self::zeroes(self.accuracy());
+        res[0] += &self[0];
+        for i in 1..self.accuracy() {
+            res[i] += &c[i];
+            for j in 1..i {
+                let cpy = res[i - j].clone();
+                res[i] += cpy * &c[j];
+            }
+            res[i] /= Self::Coeff::from(i as u32);
+        }
+        res
     }
 
     #[inline]
     fn euler_inv(&self) -> Self {
-        unimplemented!()
-    }
-
-    #[inline]
-    fn multiset(&self) -> Self {
-        unimplemented!()
-    }
-
-    #[inline]
-    fn powerset(&self) -> Self {
-        unimplemented!()
-    }
-
-    #[inline]
-    fn cycle(&self) -> Self {
-        unimplemented!()
+        let mut res = Self::zeroes(self.accuracy());
+        for i in 1..self.accuracy() {
+            res[i] = Self::Coeff::from(i as u32) * &self[i];
+            for j in 1..i {
+                let cpy = res[j].clone();
+                res[i] -= cpy * &self[i - j];
+            }
+        }
+        res = res.mobius();
+        res[0] += &self[0];
+        for i in 1..self.accuracy() {
+            res[i] /= Self::Coeff::from(i as u32);
+        }
+        res
     }
 
     #[inline]
@@ -477,9 +496,7 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
             mul *= Self::Coeff::from(i as u32);
             fac.push(mul.clone());
         }
-        let mut res = Self::zero();
-        res.expand_to(self.accuracy());
-        res.limit_accuracy(self.accuracy());
+        let mut res = Self::zeroes(self.accuracy());
         res[0] = self[0].clone();
         for i in 1..self.accuracy() {
             for j in 1..i+1 {
@@ -499,9 +516,7 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
             mul *= Self::Coeff::from(i as u32);
             fac.push(mul.clone());
         }
-        let mut res = Self::zero();
-        res.expand_to(self.accuracy());
-        res.limit_accuracy(self.accuracy());
+        let mut res = Self::zeroes(self.accuracy());
         res[0] = self[0].clone();
         for i in 1..self.accuracy() {
             for j in 1..i+1 {
@@ -514,6 +529,23 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
             }
         }
         res
+    }
+
+    #[inline]
+    fn powerset(&self) -> Self {
+        let mut res = Self::zero();
+        res.set_accuracy(self.accuracy());
+        for i in 1..self.accuracy() {
+            for j in 1..self.accuracy()/i+1 {
+                let coeff = self[i].clone() / Self::Coeff::from(j as u32);
+                if j % 2 == 1 {
+                    res[i * j] += coeff;
+                } else {
+                    res[i * j] -= coeff;
+                }
+            }
+        }
+        res.exp()
     }
 }
 
@@ -551,5 +583,15 @@ mod tests {
         assert_eq!(ans.lah_inv(), inp);
         assert_eq!(inp, inp.lah().lah_inv());
         assert_eq!(inp, inp.lah_inv().lah());
+    }
+
+    #[test]
+    fn test_euler() {
+        let conn: Series = "1,1,1,2,6,20,99,646,5974,71885,1052805,17449299,313372298".parse().unwrap();
+        let notc: Series = "1,1,2,4,11,33,142,822,6966,79853,1140916,18681008,333312451".parse().unwrap();
+        assert_eq!(conn.euler(), notc);
+        assert_eq!(conn, notc.euler_inv());
+        assert_eq!(conn.euler().euler_inv(), conn);
+        assert_eq!(conn.euler_inv().euler(), conn);
     }
 }

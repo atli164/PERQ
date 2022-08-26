@@ -181,14 +181,15 @@ impl MersP31 {
     }
     #[inline]
      fn inv(self) -> Self {
+        assert!(self.x != 0);
         let mut t = (0u32, 1u32);
         let mut r = (MersP31::MOD, self.x);
         while r.1 != 0 {
             let q = r.0 / r.1;
-            t = (t.1, t.0.wrapping_sub(q * t.1));
-            r = (r.1, r.0 - q * r.1);
+            r = (r.1, r.0.wrapping_sub(q.wrapping_mul(r.1)));
+            t = (t.1, t.0.wrapping_sub(q.wrapping_mul(t.1)));
         }
-        Self { x: if t.0 >= MersP31::MOD { t.0.wrapping_add(MersP31::MOD) } else { t.0 } }
+        return Self { x: if t.0 >= MersP31::MOD { t.0.wrapping_add(MersP31::MOD) } else { t.0 } }
     }
 }
 
@@ -330,14 +331,15 @@ impl MersP61 {
     }
     #[inline]
     fn inv(self) -> Self {
+        assert!(self.x != 0);
         let mut t = (0u64, 1u64);
         let mut r = (MersP61::MOD, self.x);
         while r.1 != 0 {
             let q = r.0 / r.1;
-            t = (t.1, t.0.wrapping_sub(q * t.1));
-            r = (r.1, r.0 - q * r.1);
+            r = (r.1, r.0.wrapping_sub(q.wrapping_mul(r.1)));
+            t = (t.1, t.0.wrapping_sub(q.wrapping_mul(t.1)));
         }
-        Self { x: if t.0 >= MersP61::MOD { t.0.wrapping_add(MersP61::MOD) } else { t.0 } }
+        return Self { x: if t.0 >= MersP61::MOD { t.0.wrapping_add(MersP61::MOD) } else { t.0 } }
     }
 }
 
@@ -463,3 +465,22 @@ impl From<u64> for MersP61 {
 ring_from_str! { impl FromStr for MersP61 }
 
 forward_into_ref_field! { impl Field for MersP61 }
+
+#[cfg(test)]
+mod tests {
+    use crate::coeff::{MersP31, MersP61};
+
+    #[test]
+    fn test_mersp31_inv() {
+        for i in 1u32..20u32 {
+            let cf = MersP31::from(i);
+            let recip = cf.inv();
+            assert!(cf * recip == MersP31::from(1u32));
+        }
+        for i in MersP31::MOD-20..MersP31::MOD {
+            let cf = MersP31::from(i);
+            let recip = cf.inv();
+            assert!(cf * recip == MersP31::from(1u32));
+        }
+    }
+}

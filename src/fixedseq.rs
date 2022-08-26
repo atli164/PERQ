@@ -181,7 +181,7 @@ impl<T: Field + Copy, const N: usize> std::str::FromStr for FixedSeq<T, N> {
         let mut seq: [T; N] = [T::zero(); N];
         let mut cnt = 0;
         for (i, t) in s.split(',').take(N).enumerate() {
-            let res = t.parse();
+            let res = t.trim().parse();
             if let Ok(val) = res {
                 seq[i] = val;
             } else {
