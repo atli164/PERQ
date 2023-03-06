@@ -81,7 +81,8 @@ fn main() {
     let stdin = std::io::stdin();
     for l in stdin.lock().lines() {
         let line = l.unwrap();
-        db.search_full(&line);
+        let res = db.search_full(&line);
+        res.to_string();
         return;
     }
 }
