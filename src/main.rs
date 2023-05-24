@@ -1,6 +1,7 @@
 use perq::oeis;
 use std::io::BufRead;
-use perq::{Series, PowerSeries};
+use perq::{Series, PowerSeries, Matrix, lll};
+use rug::Integer;
 
 /*
     0,
@@ -76,13 +77,35 @@ use perq::{Series, PowerSeries};
 */
 
 fn main() {
+    
     let db = oeis::SeqDB::from_stripped("stripped".to_string()).unwrap();
-    println!("READY");
+    println!("DB OK");
     let stdin = std::io::stdin();
     for l in stdin.lock().lines() {
         let line = l.unwrap();
+        println!("SEARCHING");
         let res = db.search_full(&line);
-        res.to_string();
+        println!("{}", res.to_string());
         return;
     }
+     
+
+    /*
+    let mut m_flt: Matrix<f64> = "[[1, -1, 3], [1, 0, 5], [1, 2, 6]]".parse().unwrap();
+    lll::float_lll(&mut m_flt, 0.75);
+    println!("{:?}", m_flt);
+    let mut m_int: Matrix<Integer> = "[[1, -1, 3], [1, 0, 5], [1, 2, 6]]".parse().unwrap();
+    lll::modular_lll(&mut m_int, &Integer::from(3), &Integer::from(4));
+    println!("{:?}", m_int);
+    
+    
+    // change float to row vecs
+    let mut a: Matrix<Integer> = "[[33554516, 3750842, -8343524, 21489465, 13970499], 
+                                   [25456939, 2845665,-6330013, 16303498, 10599055], 
+                                   [10552673, 1179613, -2623983, 6758294, 4393630],
+                                   [10628092, 1188047, -2642738, 6806596, 4425031]]".parse().unwrap();
+    println!("{}", a);
+    lll::modular_lll(&mut a,);
+    println!("{}", a);
+    */
 }

@@ -27,31 +27,7 @@ impl ModIntP32 {
     }
 }
 
-impl Zero for ModIntP32 {
-    #[inline]
-    fn zero() -> ModIntP32 {
-        ModIntP32 {
-            x: 0
-        }
-    }
-    #[inline]
-    fn is_zero(&self) -> bool {
-        self.x == 0
-    }
-}
-
-impl One for ModIntP32 {
-    #[inline]
-    fn one() -> ModIntP32 {
-        ModIntP32 {
-            x: 1
-        }
-    }
-    #[inline]
-    fn is_one(&self) -> bool {
-        self.x == 1
-    }
-}
+impl_zero_one_for_eq! { impl Zero, One for ModIntP32, ModIntP32 { x: 0 }, ModIntP32 { x: 1 } }
 
 impl Add<ModIntP32> for ModIntP32 {
     type Output = ModIntP32;
@@ -193,31 +169,7 @@ impl MersP31 {
     }
 }
 
-impl Zero for MersP31 {
-    #[inline]
-    fn zero() -> MersP31 {
-        MersP31 {
-            x: 0
-        }
-    }
-    #[inline]
-    fn is_zero(&self) -> bool {
-        self.x == 0
-    }
-}
-
-impl One for MersP31 {
-    #[inline]
-    fn one() -> MersP31 {
-        MersP31 {
-            x: 1
-        }
-    }
-    #[inline]
-    fn is_one(&self) -> bool {
-        self.x == 1
-    }
-}
+impl_zero_one_for_eq! { impl Zero, One for MersP31, MersP31 { x: 0 }, MersP31 { x: 1 } }
 
 impl Add<MersP31> for MersP31 {
     type Output = MersP31;
@@ -343,31 +295,7 @@ impl MersP61 {
     }
 }
 
-impl Zero for MersP61 {
-    #[inline]
-    fn zero() -> MersP61 {
-        MersP61 {
-            x: 0
-        }
-    }
-    #[inline]
-    fn is_zero(&self) -> bool {
-        self.x == 0
-    }
-}
-
-impl One for MersP61 {
-    #[inline]
-    fn one() -> MersP61 {
-        MersP61 {
-            x: 1
-        }
-    }
-    #[inline]
-    fn is_one(&self) -> bool {
-        self.x == 1
-    }
-}
+impl_zero_one_for_eq! { impl Zero, One for MersP61, MersP61 { x: 0} , MersP61 { x: 1 } }
 
 impl Add<MersP61> for MersP61 {
     type Output = MersP61;

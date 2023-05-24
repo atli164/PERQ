@@ -1,7 +1,7 @@
 use std::ops::{Add, Sub, Mul, Neg, Div, AddAssign, SubAssign, MulAssign, DivAssign};
 use std::str::FromStr;
 use std::fmt::Debug;
-use rug::Rational;
+use rug::{Integer, Rational};
 
 pub trait Zero {
     fn zero() -> Self;
@@ -31,13 +31,13 @@ impl<T, Rhs> GroupAssign<Rhs> for T where T:
     AddAssign<Rhs> +
     SubAssign<Rhs> {}
 
-pub trait Group: PartialEq + Eq + Clone + Debug + Sized + Zero + FromStr + 
+pub trait Group: PartialEq + Clone + Debug + Sized + Zero + FromStr + 
     GroupOps<Self, Self> +
     for<'r> GroupOps<&'r Self, Self> + 
     GroupAssign<Self> + 
     for<'r> GroupAssign<&'r Self> {}
 
-impl<T> Group for T where T: PartialEq + Eq + Clone + Debug + Sized + Zero + FromStr +  
+impl<T> Group for T where T: PartialEq + Clone + Debug + Sized + Zero + FromStr +  
     GroupOps<Self, Self> +
     for<'r> GroupOps<&'r Self, Self> + 
     GroupAssign<Self> + 
@@ -83,20 +83,15 @@ impl<T> Field for T where T: Ring +
     FieldAssign<Self> +
     for<'r> FieldAssign<&'r Self> {}
 
-impl Zero for Rational {
-    fn zero() -> Rational {
-        Rational::new()
-    }
-    fn is_zero(&self) -> bool {
-        self.cmp0() == std::cmp::Ordering::Equal
-    }
+impl_zero_one_for_eq! { impl Zero, One for Integer, Integer::from(0), Integer::from(1) }
+impl_zero_one_for_eq! { impl Zero, One for Rational, Rational::from((0u32, 1u32)), Rational::from((1u32, 1u32)) }
+impl_zero_one_for_eq! { impl Zero, One for f32, 0.0, 1.0 }
+impl_zero_one_for_eq! { impl Zero, One for f64, 0.0, 1.0 }
+
+macro_rules! zero_one_impl_ints { 
+    ($($t:ty)*) => ($(
+        impl_zero_one_for_eq! { impl Zero, One for $t, 0, 1 }
+    )*)
 }
 
-impl One for Rational {
-    fn one() -> Rational {
-        Rational::from((1u32, 1u32))
-    }
-    fn is_one(&self) -> bool {
-        self == &Rational::from((1u32, 1u32))
-    }
-}
+zero_one_impl_ints! { usize u8 u16 u32 u64 u128 isize i8 i16 i32 i64 i128 }

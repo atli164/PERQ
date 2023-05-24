@@ -316,3 +316,24 @@ macro_rules! ring_from_str {
         }
     };
 }
+
+macro_rules! impl_zero_one_for_eq {
+    (impl Zero, One for $t:ty, $z:expr, $u:expr) => {
+        impl Zero for $t {
+            fn zero() -> Self {
+                $z
+            }
+            fn is_zero(&self) -> bool {
+                *self == $z
+            }
+        }
+        impl One for $t {
+            fn one() -> Self {
+                $u
+            }
+            fn is_one(&self) -> bool {
+                *self == $u
+            }
+        }
+    }
+}

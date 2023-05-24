@@ -7,3 +7,18 @@ https://www.ams.org/journals/mcom/2011-80-273/S0025-5718-2010-02392-0/S0025-5718
 https://cr.yp.to/bib/2004/hanrot-middle.pdf
 https://www.fmf.uni-lj.si/~petkovsek/PetZakPreprint.pdf
 https://oeis.org/ol_source.txt
+https://www.agner.org/optimize/instruction_tables.pdf
+https://www.research-collection.ethz.ch/bitstream/handle/20.500.11850/69305/eth-3342-01.pdf?sequence=1&isAllowed=y
+
+
+Segment LLL Reduction of Lattice Bases Using Modular Arithmetic
+Sanjay Mehrotra and Zhifeng Li
+
+Extended GCD and Hermite Normal Form
+Algorithms via Lattice Basis Reduction
+George Havas, Bohdan S. Majewski, and Keith R. Matthews
+
+Faster Algorithms for Integer Lattice Basis Reduction
+Arne Storjohann
+
+Keith O. Geddes, Stephen R. Czapor, George Labahn - Algorithms for Computer Algebra-Kluwer

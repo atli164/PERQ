@@ -2,7 +2,7 @@ use crate::{Ring, Field};
 use std::ops::{Add, Sub, Mul, Neg, AddAssign, SubAssign, MulAssign};
 use std::iter::zip;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Matrix<T: Ring> {
     r: usize,
     c: usize,
@@ -94,6 +94,67 @@ impl<'a, T: Ring> MulAssign<&'a Matrix<T>> for Matrix<T> {
 
 forward_from_ref_ring! { impl Ring for Matrix<T> where T: Ring + Copy }
 
+impl<T: Ring> std::str::FromStr for Matrix<T> {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (mut depth, mut rstart, mut r, mut c) = (0, 0, 0, 0);
+        let mut dat = vec![];
+        for (i, ch) in s.chars().enumerate() {
+            if ch.is_whitespace() { continue; }
+            if ch == '[' { 
+                rstart = i + 1;
+                depth += 1; 
+            }
+            if ch == ']' { 
+                depth -= 1; 
+                if depth == 1 {
+                    r += 1;
+                    let mut cur_c = 0;
+                    for num in s[rstart..i].split(',') {
+                        let res = num.trim().parse();
+                        if let Ok(val) = res {
+                            dat.push(val);
+                        } else {
+                            return Err(());
+                        }
+                        cur_c += 1;
+                    }
+                    if cur_c == 0 { return Err(()); }
+                    if c == 0 {
+                        c = cur_c;
+                    } else {
+                        if c != cur_c {
+                            return Err(());
+                        }
+                    }
+                }
+            }
+        }
+        Ok(Self { r, c, dat })
+    }
+}
+
+impl<T: Ring + std::fmt::Display> std::fmt::Display for Matrix<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "[")?;
+        for i in 0..self.r {
+            write!(f, "[")?;
+            for j in 0..self.c {
+                write!(f, "{}", self[(i, j)])?;
+                if j != self.c - 1 {
+                    write!(f, ", ")?;
+                }
+            }
+            write!(f, "]")?;
+            if i != self.r - 1 {
+                write!(f, ", ")?;
+            }
+        }
+        write!(f, "]")
+    }
+}
+
 impl<T: Ring> Matrix<T> {
     pub fn new(r: usize, c: usize) -> Self {
         Self {
@@ -101,6 +162,21 @@ impl<T: Ring> Matrix<T> {
             c,
             dat: vec![T::zero(); r * c]
         }
+    }
+    pub fn shape(&self) -> (usize, usize) {
+        (self.r, self.c)
+    }
+    pub fn swap(&mut self, a: (usize, usize), b: (usize, usize)) {
+        self.dat.swap(a.0 * self.c + a.1, b.0 * self.c + b.1);
+    }
+    pub fn transpose(&self) -> Self {
+        let mut res = Self::new(self.c, self.r);
+        for i in 0..self.r {
+            for j in 0..self.c {
+                res[(j, i)] = self[(i, j)].clone();
+            }
+        }
+        return res;
     }
 }
 
