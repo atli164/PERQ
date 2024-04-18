@@ -2,6 +2,7 @@ use std::ops::{Add, Sub, Neg, Mul, Div, AddAssign, SubAssign, MulAssign, DivAssi
 use std::cmp::min;
 use crate::{Field, PowerSeries};
 use crate::mathtypes::{Zero, One};
+use rug::Rational;
 use std::iter::zip;
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -15,6 +16,13 @@ pub type ShortSeq<T> = FixedSeq<T, 16>;
 impl<T: Field + Copy, const N: usize> From<u32> for FixedSeq<T, N> {
     #[inline]
     fn from(x: u32) -> Self {
+        Self::promote(T::from(x))
+    }
+}
+
+impl<T: Field + Copy, const N: usize> From<Rational> for FixedSeq<T, N> {
+    #[inline]
+    fn from(x: Rational) -> Self {
         Self::promote(T::from(x))
     }
 }
@@ -250,6 +258,17 @@ impl<T: Field + Copy, const N: usize> PowerSeries for FixedSeq<T, N> {
 }
 
 forward_into_ref_field! { impl Field for FixedSeq<T, N> where T: Field + std::marker::Copy, const N: usize }
+
+impl<T: Field + Copy, const N: usize> FixedSeq<T, N> {
+    pub fn from_series(s: &crate::Series) -> Self {
+        let acc = min(s.accuracy(), N);
+        let mut res = FixedSeq::<T, N>::zero();
+        for i in 0..acc {
+            res[i] = T::from(s.seq[i].clone());
+        }
+        res
+    }
+}
 
 #[cfg(test)]
 mod tests {

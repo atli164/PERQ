@@ -1,7 +1,7 @@
 use crate::matrix::Matrix;
 use crate::mathtypes::Zero;
 use rug::{Integer, Complete};
-use rug::ops::{Pow, DivRounding, NegAssign};
+use rug::ops::{DivRounding, NegAssign};
 
 fn size_reduce_vector(b: &mut Matrix<f64>, gamma: &mut Matrix<f64>, k: usize, j: usize) {
     let theta: f64 = gamma[(j, k)].round();
@@ -173,7 +173,7 @@ fn mod_swap(a: &mut Matrix<Integer>, t: &mut Matrix<Integer>, m: &Integer, k: us
 }
 
 pub fn modular_lll(a: &mut Matrix<Integer>) {
-    let (n, m) = a.shape();
+    let (n, _m) = a.shape();
     let mut t = ff_gaussian(&*a * &a.transpose());
     println!("{}", t);
     let mut m = t[(0, 0)].clone();

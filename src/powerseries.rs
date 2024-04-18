@@ -70,7 +70,13 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
     fn log_derive(&self) -> Self {
         self.derive() / self
     }
-
+    
+    #[inline]
+    fn exp_integ(&self) -> Self {
+        let mut res = self.integrate();
+        res.limit_accuracy(self.accuracy());
+        res.exp()
+    }
 
     #[inline]
     fn integrate(&self) -> Self {
@@ -84,13 +90,23 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
     #[inline]
     fn hadamard(&self, other: &Self) -> Self {
         let mut res = self.clone();
-        let len = min(self.accuracy(), other.accuracy());
-        for i in 0..len {
+        res.limit_accuracy(other.accuracy());
+        for i in 0..res.accuracy() {
             res[i] *= &other[i];
         }
-        res.limit_accuracy(len);
         res
     }
+
+    #[inline]
+    fn point_div(&self, other: &Self) -> Self {
+        let mut res = self.clone();
+        res.limit_accuracy(other.accuracy());
+        for i in 0..res.accuracy() {
+            res[i] /= &other[i];
+        }
+        res
+    }
+
 
     #[inline]
     fn pow(&self, p: i32) -> Self {
@@ -114,7 +130,9 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
 
     #[inline]
     fn ratpow(&self, p: i32, q: u32) -> Self {
-        // for now, check for x^q and such later
+        if q == 1 {
+            return self.pow(p);
+        }
         assert!(self[0].is_one());
         let mut r = Self::one();
         r.set_accuracy(self.accuracy());
@@ -231,6 +249,11 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
     }
 
     #[inline]
+    fn tan(acc: usize) -> Self {
+        Self::sin(acc) / Self::cos(acc)
+    }
+
+    #[inline]
     fn expx(acc: usize) -> Self {
         let mut res = Self::one();
         res.set_accuracy(acc);
@@ -335,7 +358,6 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
     #[inline]
     fn exp(&self) -> Self {
         let mut res = Self::expx(self.accuracy()).compose(self);
-        res[0] -= Self::Coeff::one();
         res
     }
 
@@ -548,7 +570,6 @@ pub trait PowerSeries: IndexMut<usize, Output = Self::Coeff> + FromIterator<Self
         res.exp()
     }
 }
-
 
 #[cfg(test)]
 mod tests {

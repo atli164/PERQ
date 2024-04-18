@@ -49,6 +49,13 @@ impl From<u32> for Series {
     }
 }
 
+impl From<Rational> for Series {
+    #[inline]
+    fn from(x: Rational) -> Series {
+        Series::promote(x)
+    }
+}
+
 impl<'a, 'b> Add<&'a Series> for &'b Series {
     type Output = Series;
 
@@ -220,3 +227,27 @@ impl std::str::FromStr for Series {
         Ok(Self { seq })
     }
 }
+
+impl std::fmt::Display for Series {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut fst = true;
+        for i in 0..self.seq.len() {
+            if self.seq[i] == 0 { continue; }
+            if self.seq[i] > 0 && !fst { write!(f, "+")?; }
+            if &self.seq[i] == Rational::ONE && i != 0 { }
+            else if &self.seq[i] == Rational::NEG_ONE && i != 0 {
+                write!(f, "-")?;
+            } else {
+                write!(f, "{}", self.seq[i])?;
+            }
+            if i == 1 { write!(f, "x")?; }
+            if i > 1 { write!(f, "x^{}", i)?; }
+            fst = false;
+        }
+        if fst {
+            write!(f, "0")?;
+        }
+        Ok(())
+    }
+}
+

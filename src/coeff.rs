@@ -1,5 +1,6 @@
 use std::ops::{Add, Sub, Mul, Neg, Div, AddAssign, SubAssign, MulAssign, DivAssign};
 use crate::mathtypes::{One, Zero};
+use rug::{Complete, Rational};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Hash)]
 pub struct ModIntP32 {
@@ -128,6 +129,19 @@ impl From<u32> for ModIntP32 {
     }
 }
 
+impl From<Rational> for ModIntP32 {
+    #[inline]
+    fn from(x: Rational) -> ModIntP32 {
+        let num = ModIntP32 { x: (x.numer().clone().abs() % ModIntP32::MOD).to_u32().unwrap() };
+        let den = ModIntP32 { x: (x.denom() % ModIntP32::MOD).complete().to_u32().unwrap() };
+        if x < 0 {
+            -num / den
+        } else {
+            num / den
+        }
+    }
+}
+
 ring_from_str! { impl FromStr for ModIntP32 }
 
 forward_into_ref_field! { impl Field for ModIntP32 }
@@ -252,6 +266,19 @@ impl From<u32> for MersP31 {
     fn from(x: u32) -> MersP31 {
         let res = (x & MersP31::MOD) + (x >> 31);
         (Self { x: res}).reduced()
+    }
+}
+
+impl From<Rational> for MersP31 {
+    #[inline]
+    fn from(x: Rational) -> MersP31 {
+        let num = MersP31::from((x.numer().clone().abs() % MersP31::MOD).to_u32().unwrap());
+        let den = MersP31::from((x.denom() % MersP31::MOD).complete().to_u32().unwrap());
+        if x < 0 {
+            -num / den
+        } else {
+            num / den
+        }
     }
 }
 
@@ -386,6 +413,19 @@ impl From<u64> for MersP61 {
         let z = ((xp >> 61) + xp) >> 61;
         MersP61 {
             x: (x + z) & MersP61::MOD
+        }
+    }
+}
+
+impl From<Rational> for MersP61 {
+    #[inline]
+    fn from(x: Rational) -> MersP61 {
+        let num = MersP61::from((x.numer().clone().abs() % MersP61::MOD).to_u64().unwrap());
+        let den = MersP61::from((x.denom() % MersP61::MOD).complete().to_u64().unwrap());
+        if x < 0 {
+            -num / den
+        } else {
+            num / den
         }
     }
 }

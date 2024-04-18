@@ -337,3 +337,62 @@ macro_rules! impl_zero_one_for_eq {
         }
     }
 }
+
+macro_rules! series_lookups {
+    ( $n: ident, $s: ident, $( $x:ident ),* ) => {
+        {
+            match $n {
+                $(
+                    stringify!($x) => Some(Series::$x($s.default_precision)),
+                )*
+                _ => None
+            }
+        }
+    };
+}
+
+macro_rules! function_lookups {
+    ( $n: ident, $( $x:ident ),* ) => {
+        {
+            match $n {
+                $(
+                    stringify!($x) => Some(Series::$x),
+                )*
+                _ => None
+            }
+        }
+    };
+}
+
+macro_rules! binop_promotion {
+    ( $x: ident, $op: path, $y: ident) => {
+        {
+            match $x {
+                SeriesExpr(s) =>  {
+                    match $y {
+                        SeriesExpr(t) => {
+                            Ok(SeriesExpr($op(s, t)))
+                        },
+                        ConstExpr(d) => {
+                            let mut ser = Series::promote(d);
+                            ser.expand_to(s.accuracy());
+                            Ok(SeriesExpr($op(s, ser)))
+                        }
+                    }
+                },
+                ConstExpr(c) => {
+                    match $y {
+                        SeriesExpr(t) => {
+                            let mut ser = Series::promote(c);
+                            ser.expand_to(t.accuracy());
+                            Ok(SeriesExpr($op(ser, t)))
+                        },
+                        ConstExpr(d) => {
+                            Ok(ConstExpr($op(c, d)))
+                        }
+                    }
+                }
+            }
+        }
+    };
+}

@@ -75,13 +75,15 @@ pub trait Field: Ring +
     FieldOps<Self, Self> +
     for<'r> FieldOps<&'r Self, Self> +
     FieldAssign<Self> +
-    for<'r> FieldAssign<&'r Self> {}
+    for<'r> FieldAssign<&'r Self> +
+    From<Rational> {}
 
 impl<T> Field for T where T: Ring +
     FieldOps<Self, Self> +
     for<'r> FieldOps<&'r Self, Self> +
     FieldAssign<Self> +
-    for<'r> FieldAssign<&'r Self> {}
+    for<'r> FieldAssign<&'r Self> +
+    From<Rational> {}
 
 impl_zero_one_for_eq! { impl Zero, One for Integer, Integer::from(0), Integer::from(1) }
 impl_zero_one_for_eq! { impl Zero, One for Rational, Rational::from((0u32, 1u32)), Rational::from((1u32, 1u32)) }

@@ -24,7 +24,7 @@ fn ps_binop<P: PowerSeries>(a: P, b: &P, i: usize) -> (Option<P>, i32) {
     }
 }
 
-const UNOP_NUM: usize = 30;
+const UNOP_NUM: usize = 31;
 fn ps_unop<P: PowerSeries>(a: P, i: usize) -> (Option<P>, i32) {
     match i {
         0 => (Some(a), 0),
@@ -57,17 +57,89 @@ fn ps_unop<P: PowerSeries>(a: P, i: usize) -> (Option<P>, i32) {
         27 => (if !a[0].is_one() { None } else { Some(a.ratpow(1, 3)) }, 200),
         28 => (Some(a.pow(2)), 100),
         29 => (Some(a.pow(3)), 150),
+        30 => (Some(a.exp_integ()), 150),
         _ => unreachable!()
     }
 }
 
+const PREOP_NUM: usize = 8;
+fn ps_preop<P: PowerSeries>(mut a: P, i: usize) -> P {
+    match i {
+        0 => a,
+        1 => a.lshift(),
+        2 => a.lshift().lshift(),
+        3 => a.rshift(),
+        4 => a.rshift().rshift(),
+        5 => a.lshift().rshift(),
+        6 => { a[0] += P::Coeff::from(1); a },
+        7 => { a[0] -= P::Coeff::from(1); a },
+        _ => unreachable!()
+    }
+}
+
+fn binop_format(a: &str, op: usize, b: &str) -> String {
+    match op {
+        0 => format!("({} + {})", a, b),
+        1 => format!("({} - {})", a, b),
+        2 => format!("({} * {})", a, b),
+        3 => format!("({} / {})", a, b),
+        4 => format!("({} / {})", b, a),
+        5 => format!("{}({})", a, b),
+        6 => format!("{}({})", b, a),
+        7 => format!("({} .* {})", a, b),
+        8 => format!("exp_mul({}, {})", a, b),
+        9 => format!("dirichlet({}, {})", a, b),
+        _ => unreachable!()
+    }
+}
+
+const OPNAMES: &'static [&str] = &[
+    "", "", "derive", "integrate", "point",
+    "log_derive", "partial_sums", "partial_products",
+    "delta", "binomial_transform", 
+    "inverse_binomial_transform", "t019", "exp", "log",
+    "laplace_transform", "inverse_laplace_transform",
+    "boustrophedon_transform",
+    "inverse_boustrophedon_transform",
+    "mobius_transform", "inverse_mobius_transform",
+    "stirling_transform", "inverse_stirling_transform",
+    "euler_transform", "inverse_euler_transform",
+    "lah_transform", "inverse_lah_transform",
+    "sqrt", "cbrt", "", "", "exp_integrate"
+];
+
+fn unop_format(a: &str, op: usize) -> String {
+    match op {
+        0 => format!("{}", a),
+        1 => format!("-{}", a),
+        28 => format!("({})^2", a),
+        29 => format!("({})^3", a),
+        _ => format!("{}({})", OPNAMES[op], a),
+    }
+}
+
+fn preop_format(a: &str, op: usize) -> String {
+    match op {
+        0 => format!("{}", a),
+        1 => format!("({})/x", a),
+        2 => format!("({})/x^2", a),
+        3 => format!("({})*x", a),
+        4 => format!("({})*x^2", a),
+        5 => format!("({} - {}[0])", a, a),
+        6 => format!("({} + 1)", a),
+        7 => format!("({} - 1)", a),
+        _ => unreachable!()
+    }
+
+}
 
 #[derive(Debug, Default)]
 pub struct SeqDB {
     short_map: BTreeMap<ShortSeq<MersP31>, u32>,
     short_vec: Vec<ShortSeq<MersP31>>,
-    long_vec: Vec<Series>,
-    a_to_ind: FxHashMap<u32, usize>
+    pub long_vec: Vec<Series>,
+    pub a_to_ind: FxHashMap<u32, usize>,
+    pub ind_to_a: Vec<u32>
 }
 
 #[derive(Debug)]
@@ -96,9 +168,10 @@ impl TopResults {
     }
 }
 
+// TODO: Make top shown editable
 impl std::fmt::Display for TopResults {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for i in 0..10 {
+        for i in 0..std::cmp::min(10, self.results.len()) {
             write!(f, "{}\n", self.results[i])?;
         }
         Ok(())
@@ -110,16 +183,28 @@ impl SeqDB {
         Default::default()
     }
 
+    fn significant(seq: ShortSeq<MersP31>) -> bool {
+        if seq.accuracy() < 10 { return false; }
+        let mut zprf = 0;
+        while zprf < seq.accuracy() && seq[zprf].is_zero() { zprf += 1 };
+        if zprf >= 4 { return false; }
+        let mut vcnt = 0;
+        for i in 0..seq.accuracy() { if !seq[i].is_zero() && !seq[i].is_one() { vcnt += 1; } }
+        if vcnt < 6 { return false; }
+        true
+    }
+
     fn add_entry(&mut self, anum: u32, seq: &str) {
         let cur_ind = self.a_to_ind.len();
         let short_seq: ShortSeq<MersP31> = seq.parse().unwrap();
-        if short_seq.accuracy() < 10 { return; }
+        if !Self::significant(short_seq) { return; }
         let long_seq: Series = seq.parse().unwrap();
         if self.short_map.get(&short_seq).is_none() {
             self.short_map.insert(short_seq, anum);
             self.short_vec.push(short_seq);
             self.long_vec.push(long_seq);
             self.a_to_ind.insert(anum, cur_ind);
+            self.ind_to_a.push(anum);
         }
     }
 
@@ -141,53 +226,95 @@ impl SeqDB {
         Ok(db)
     }
 
-    pub fn search_full(&self, inp: &str) -> TopResults {
+    pub fn search_full(&self, long_inp: &Series) -> TopResults {
         let top = Mutex::new(TopResults::default());
-        let short_inp: ShortSeq<MersP31> = inp.parse().unwrap();
-        let long_inp: Series = inp.parse().unwrap();
-        let trans_dat: Vec<(ShortSeq<MersP31>, i32, usize)> = (0..UNOP_NUM)
-            .map(|i| (ps_unop(short_inp, i), i))
-            .filter(|x| x.0.0.is_some())
-            .map(|x| (x.0.0.unwrap(), x.0.1, x.1))
-            .collect();
-        (0..self.short_vec.len()).into_par_iter().for_each(|i| {
+        let short_inp = ShortSeq::<MersP31>::from_series(long_inp);
+        for i in 0..PREOP_NUM {
+            let pre_proc = ps_preop(short_inp, i);
+            let trans_dat: Vec<(ShortSeq<MersP31>, i32, usize)> = (0..UNOP_NUM)
+                .map(|i| (ps_unop(pre_proc, i), i))
+                .filter(|x| x.0.0.is_some())
+                .map(|x| (x.0.0.unwrap(), x.0.1, x.1))
+                .filter(|x| Self::significant(x.0))
+                .collect();
             for (t_seq, t_cost, t_ind) in &trans_dat {
-                for b_op in 0..BINOP_NUM {
-                    let (res, b_cost) = match ps_binop(*t_seq, &self.short_vec[i], b_op) {
-                        (Some(val), cost) => (val, cost),
-                        (None, _) => continue
-                    };
-                    let inds = self.db_match_short(res);
-                    if inds.len() > 0 {
-                        let long_unop = match ps_unop(long_inp.clone(), *t_ind).0 {
-                            Some(v) => v,
-                            None => continue
-                        };
-                        let long_res = match ps_binop(long_unop, &self.long_vec[i], b_op).0 {
-                            Some(v) => v,
-                            None => continue
-                        };
-                        let score = (0..long_res.accuracy()).map(|i| std::cmp::min(10, long_res[i].clone().abs().to_f64().round() as i32) * 10).sum::<i32>()
-                            - t_cost - b_cost - (self.short_vec.len().checked_ilog2().unwrap() as i32) * 33;
-                        if score < 0 {
-                            continue;
-                        }
-                        for ind in inds {
-                            if self.long_vec[ind].matches(&long_res) {
-                                let s1 = format!("unop-{} => {:?}", t_ind, ps_unop(long_inp.clone(), *t_ind).0.unwrap());
-                                let s2 = format!("op-{} w. {:?}\n=> {:?}\n", b_op, self.long_vec[i], long_res);
-                                top.lock().expect("Mutex failed").add_result(SearchResult {
-                                    score: score,
-                                    series: long_res.clone(),
-                                    description: s1 + "\n" + &s2
-                                });
-                            }
-                        }
+                self.process_result(&top, *t_seq, long_inp, i, *t_cost, *t_ind, usize::MAX, usize::MAX);
+            }
+            (0..self.short_vec.len()).into_par_iter().for_each(|j| {
+                for (t_seq, t_cost, t_ind) in &trans_dat {
+                    for b_op in 0..BINOP_NUM {
+                        self.process_result(&top, *t_seq, long_inp, i, *t_cost, *t_ind, j, b_op);
                     }
                 }
-            }
-        });
+            });
+        }
         top.into_inner().unwrap()
+    }
+
+    fn pretty_result(&self, in_pre: usize, out_pre: usize, u_op: usize, seq: usize, b_op: usize, ind: usize) -> String {
+        let p_format = preop_format("INPUT", in_pre);
+        let u_format = unop_format(&p_format, u_op);
+        let b_format = match seq {
+            usize::MAX => u_format,
+            _ => {
+                let seqname = format!("A{}", self.ind_to_a[seq]);
+                binop_format(&u_format, b_op, &seqname)
+            }
+        };
+        format!("{} matches A{}", preop_format(&b_format, out_pre), self.ind_to_a[ind])
+    }
+
+    fn calculate_long(&self, long_inp: &Series, pre_op: usize, post_op: usize, u_op: usize, b_op: usize, seq: usize) -> Option<Series> {
+        let long_preop = ps_preop(long_inp.clone(), pre_op);
+        let Some(long_unop) = ps_unop(long_preop, u_op).0 else { return None; };
+        let long_nres = match seq {
+            usize::MAX => long_unop,
+            _ => {
+                match ps_binop(long_unop, &self.long_vec[seq], b_op).0 {
+                    Some(v) => v,
+                    None => { return None; }
+                }
+            }
+        };
+        Some(ps_preop(long_nres, post_op))
+    }
+
+    fn tautology(&self, pre_op: usize, post_op: usize, u_op: usize, b_op: usize, seq: usize) -> bool {
+        let Some(l1) = self.calculate_long(&self.long_vec[0], pre_op, post_op, u_op, b_op, seq) else { return false; };
+        l1.matches(&self.long_vec[0]) 
+    }
+
+    fn process_result(&self, top: &Mutex<TopResults>, pre_seq: ShortSeq<MersP31>, long_inp: &Series, pre_op: usize, pre_cost: i32, u_op: usize, seq: usize, b_op: usize) {
+        let (res, b_cost) = match seq {
+            usize::MAX => (pre_seq, 0),
+            _ => {
+                match ps_binop(pre_seq, &self.short_vec[seq], b_op) {
+                    (Some(val), cost) => (val, cost),
+                    (None, _) => { return; }
+                }
+            }
+        };
+        if !Self::significant(res) { return; }
+        for k in 0..PREOP_NUM {
+            let res2 = ps_preop(res, k);
+            let inds = self.db_match_short(res2);
+            if inds.len() == 0 { return; }
+            let Some(long_res) = self.calculate_long(long_inp, pre_op, k, u_op, b_op, seq) else { return; };
+            let base_score = (0..long_res.accuracy()).map(|i| std::cmp::min(10, long_res[i].clone().abs().to_f64().round() as i32) * 10).sum::<i32>();
+            let cost_corr = - pre_cost - b_cost - (self.short_vec.len().checked_ilog2().unwrap() as i32) * 33;
+            let dupl_corr = if seq != usize::MAX && long_res.matches(&self.long_vec[seq]) { -800 } else { 0 };
+            let cur_score = base_score + cost_corr + dupl_corr;
+            if cur_score < 0 { return; }
+            for ind in inds {
+                if self.long_vec[ind].matches(&long_res) {
+                    top.lock().expect("Mutex failed").add_result(SearchResult {
+                        score: cur_score,
+                        series: long_res.clone(),
+                        description: self.pretty_result(pre_op, k, u_op, seq, b_op, ind),
+                    });
+                }
+            }
+        }
     }
 
     pub fn db_match_short(&self, mut short: ShortSeq<MersP31>) -> Vec<usize> {
@@ -196,7 +323,7 @@ impl SeqDB {
         }
         let mut res = vec![];
         for (k, v) in self.short_map.range(short..) {
-            if short.matches(k) { break; }
+            if !short.matches(k) { break; }
             let ind = *self.a_to_ind.get(v).unwrap();
             res.push(ind);
         }
